@@ -33,12 +33,10 @@ class MainActivity extends SActivity {
       override def onNothingSelected(parent: AdapterView[_]): Unit = {}
     })
     HelperFactory.setHelper(getApplicationContext)
-    languageRepository = HelperFactory.helper().getLanguageRepository
+    languageRepository = HelperFactory.helper().getRepository(classOf[LanguageRepository], classOf[Language]) //todo change method to pass only repo type
     initLanguages()
     loadLanguages()
-
   }
-
 
   private def initLanguages(): Unit = {
     languageRepository.deleteAll()

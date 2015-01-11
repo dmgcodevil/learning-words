@@ -1,5 +1,6 @@
 package com.github.learningwords.repository.util
 
+import java.lang.reflect.Constructor
 import java.sql.SQLException
 
 import android.content.Context
@@ -9,6 +10,7 @@ import android.util.Log
 import com.github.learningwords.domain.Language
 import com.github.learningwords.repository.LanguageRepository
 import com.j256.ormlite.android.apptools.OrmLiteSqliteOpenHelper
+import com.j256.ormlite.dao.{Dao, BaseDaoImpl}
 import com.j256.ormlite.support.ConnectionSource
 import com.j256.ormlite.table.TableUtils
 
@@ -71,6 +73,21 @@ class DatabaseHelper(_context: Context, dbName: String, cursorFactory: CursorFac
     }
     languageRepository
   }
+
+  var repositories = Map[Class[_ <: Dao[_, _]], Any]();
+
+  def getRepository[T <: Dao[_, _]](repoType: Class[T], entityType: Class[_]): T = {
+    if (!repositories.contains(repoType)) {
+      val constructor = arrayToList(repoType.getDeclaredConstructors)(0) // todo fix it
+      constructor.setAccessible(true)
+      var repo = constructor.newInstance(getConnectionSource, entityType)
+      repositories += repoType -> repo
+    }
+
+    repositories(repoType).asInstanceOf[T]
+  }
+
+  implicit def arrayToList[A](arr: Array[A]) = arr.toList
 
   override def close(): Unit = {
     super.close()
