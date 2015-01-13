@@ -1,5 +1,6 @@
 package com.github.learningwords.activity
 
+import android.app.Activity
 import android.os.Bundle
 import android.view.{Menu, MenuItem, View}
 import android.widget.AdapterView.OnItemSelectedListener
@@ -8,13 +9,13 @@ import com.github.learningwords.R
 import com.github.learningwords.domain.Language
 import com.github.learningwords.repository.LanguageRepository
 import com.github.learningwords.repository.util.HelperFactory
-import org.scaloid.common.SActivity
+
 
 
 /**
  * @author dmgcodevil
  */
-class MainActivity extends SActivity {
+class MainActivity extends Activity {
 
   private var languageRepository: LanguageRepository = null
   private var selectLanguageSpinner: Spinner = null
@@ -24,7 +25,7 @@ class MainActivity extends SActivity {
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
-    selectLanguageSpinner = find[Spinner](R.id.selectLanguageSpinner)
+    selectLanguageSpinner = findViewById(R.id.selectLanguageSpinner).asInstanceOf[Spinner]
     selectLanguageSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
       override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit = {
         selectLanguageSpinner.setSelection(position)
@@ -33,7 +34,7 @@ class MainActivity extends SActivity {
       override def onNothingSelected(parent: AdapterView[_]): Unit = {}
     })
     HelperFactory.setHelper(getApplicationContext)
-    languageRepository = HelperFactory.helper().getRepository(classOf[LanguageRepository], classOf[Language]) //todo change method to pass only repo type
+    languageRepository = HelperFactory.helper().getRepository(classOf[LanguageRepository])
     initLanguages()
     loadLanguages()
   }

@@ -46,7 +46,7 @@ dependencies {
     compile "org.scaloid:scaloid_2.11:3.5-10+"
     // ORM
     compile 'com.j256.ormlite:ormlite-android:4.48'
-    compile 'org.reflections:reflections:0.9.9'
+    compile 'com.google.guava:guava:18.0'
 
 
 }
