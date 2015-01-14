@@ -8,13 +8,54 @@
     android:paddingBottom="@dimen/activity_vertical_margin"
     tools:context="com.github.learningwords.activity.MainActivity">
 
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Please select your  native language"
+        android:id="@+id/selectNativeLangTextView"
+        android:layout_marginTop="121dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true" />
     <Spinner
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/selectLanguageSpinner"
+        android:id="@+id/selectNativeLanguage"
         android:spinnerMode="dropdown"
         android:prompt="@string/selectLanguage"
         android:layout_weight="1"
-        android:minHeight="25dp" />
+        android:minHeight="25dp"
+        android:layout_below="@+id/selectNativeLangTextView"
+        android:layout_alignParentStart="true" />
+
+
+
+
+    <TextView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Please select learning language"
+        android:id="@+id/selectLearningLangTextView"
+        android:layout_centerVertical="true"
+        android:layout_alignParentEnd="true" />
+    <Spinner
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/selectLearningLanguage"
+        android:layout_below="@+id/selectLearningLangTextView"
+        android:layout_alignParentStart="true" />
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/saveBtn"
+        android:layout_marginTop="44dp"
+        android:src="@drawable/circle_next_arrow_disclosure"
+        android:cropToPadding="false"
+        android:clickable="true"
+        android:layout_below="@+id/selectLearningLanguage"
+        android:layout_centerHorizontal="true" />
 
 </RelativeLayout>

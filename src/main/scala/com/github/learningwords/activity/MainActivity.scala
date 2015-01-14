@@ -3,13 +3,10 @@ package com.github.learningwords.activity
 import android.app.Activity
 import android.os.Bundle
 import android.view.{Menu, MenuItem, View}
-import android.widget.AdapterView.OnItemSelectedListener
-import android.widget.{AdapterView, ArrayAdapter, Spinner}
-import com.github.learningwords.R
-import com.github.learningwords.domain.Language
-import com.github.learningwords.repository.LanguageRepository
+import android.widget.{AdapterView, ArrayAdapter, ImageButton, Spinner}
 import com.github.learningwords.repository.util.HelperFactory
-
+import com.github.learningwords.util.LanguageReader
+import com.github.learningwords.{Language, R}
 
 
 /**
@@ -17,43 +14,71 @@ import com.github.learningwords.repository.util.HelperFactory
  */
 class MainActivity extends Activity {
 
-  private var languageRepository: LanguageRepository = null
-  private var selectLanguageSpinner: Spinner = null
-  private var listItems: List[String] = List[String]()
+
+  private var selectNativeLanguage: Spinner = null
+  private var selectLearningLanguage: Spinner = null
+  private var listItems: List[String] = List("")
   private var adapter: ArrayAdapter[String] = null
+  private var nativeLanguage: String = null
+  private var learningLanguage: String = null
+  private var saveBtn: ImageButton = null
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
-    selectLanguageSpinner = findViewById(R.id.selectLanguageSpinner).asInstanceOf[Spinner]
-    selectLanguageSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
-      override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit = {
-        selectLanguageSpinner.setSelection(position)
+    selectNativeLanguage = findViewById(R.id.selectNativeLanguage).asInstanceOf[Spinner]
+    selectLearningLanguage = findViewById(R.id.selectLearningLanguage).asInstanceOf[Spinner]
+    saveBtn = findViewById(R.id.saveBtn).asInstanceOf[ImageButton]
+    saveBtn.setVisibility(View.INVISIBLE)
+    HelperFactory.setHelper(getApplicationContext)
+
+    def updateSaveBtn() {
+      if (!Option(learningLanguage).getOrElse("").isEmpty && !Option(nativeLanguage).getOrElse("").isEmpty) {
+        saveBtn.setVisibility(View.VISIBLE)
+      } else {
+        saveBtn.setVisibility(View.INVISIBLE)
+      }
+    }
+
+    selectNativeLanguage.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener {
+      override def onNothingSelected(parent: AdapterView[_]): Unit = {
+        nativeLanguage = ""
+        updateSaveBtn()
       }
 
-      override def onNothingSelected(parent: AdapterView[_]): Unit = {}
+      override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit ={
+        nativeLanguage = selectNativeLanguage.getSelectedItem.asInstanceOf[String]
+        updateSaveBtn()
+      }
     })
-    HelperFactory.setHelper(getApplicationContext)
-    languageRepository = HelperFactory.helper().getRepository(classOf[LanguageRepository])
-    initLanguages()
+
+    selectLearningLanguage.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener {
+      override def onNothingSelected(parent: AdapterView[_]): Unit = {
+        learningLanguage = ""
+        updateSaveBtn()
+      }
+
+      override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit ={
+        learningLanguage = selectLearningLanguage.getSelectedItem.asInstanceOf[String]
+        updateSaveBtn()
+      }
+    })
+
     loadLanguages()
   }
 
-  private def initLanguages(): Unit = {
-    languageRepository.deleteAll()
-    languageRepository.create(new Language("English"))
-    languageRepository.create(new Language("German"))
-    languageRepository.create(new Language("Italian"))
-  }
-
   private def loadLanguages(): Unit = {
-    var languages: List[Language] = languageRepository.getAllLanguages
+    LanguageReader(getApplicationContext)
+    var languages: List[Language] = LanguageReader.languages
     languages.foreach(l =>
-      listItems = listItems.+:(l.name))
+      listItems = listItems.:+(l.name))
     val items = listItems.toArray
     adapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, items)
     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-    selectLanguageSpinner.setAdapter(adapter)
+    selectNativeLanguage.setAdapter(adapter)
+    selectLearningLanguage.setAdapter(adapter)
+    selectNativeLanguage.setSelection(0)
+    selectLearningLanguage.setSelection(0)
   }
 
 

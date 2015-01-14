@@ -6,8 +6,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteDatabase.CursorFactory
 import android.util.Log
-import com.github.learningwords.domain.Language
-import com.github.learningwords.repository.LanguageRepository
+import com.github.learningwords.Language
 import com.github.learningwords.repository.util.cfg.{Configuration, DBConfig}
 import com.j256.ormlite.android.apptools.OrmLiteSqliteOpenHelper
 import com.j256.ormlite.dao.Dao
@@ -37,7 +36,7 @@ class DatabaseHelper(_context: Context, dbName: String, cursorFactory: CursorFac
 
   def initRepositories(): Unit = {
     Log.i(TAG, "initializing repositories...")
-    repositories.put(classOf[LanguageRepository], new LanguageRepository(getConnectionSource, classOf[Language]))
+    //repositories.put(classOf[LanguageRepository], new LanguageRepository(getConnectionSource, classOf[Language]))
     Log.i(TAG, "repositories have bean initialized")
   }
 
