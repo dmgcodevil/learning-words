@@ -3,7 +3,9 @@ package com.github.learningwords.activity
 import android.app.Activity
 import android.os.Bundle
 import android.view.{Menu, MenuItem, View}
-import android.widget.{AdapterView, ArrayAdapter, ImageButton, Spinner}
+import android.widget._
+import com.github.learningwords.domain.Profile
+import com.github.learningwords.repository.ProfileRepository
 import com.github.learningwords.repository.util.HelperFactory
 import com.github.learningwords.util.LanguageReader
 import com.github.learningwords.{Language, R}
@@ -26,11 +28,22 @@ class MainActivity extends Activity {
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
+    HelperFactory.setHelper(getApplicationContext)
+    val profileRepository = HelperFactory.helper().getRepository(classOf[ProfileRepository])
     selectNativeLanguage = findViewById(R.id.selectNativeLanguage).asInstanceOf[Spinner]
     selectLearningLanguage = findViewById(R.id.selectLearningLanguage).asInstanceOf[Spinner]
     saveBtn = findViewById(R.id.saveBtn).asInstanceOf[ImageButton]
     saveBtn.setVisibility(View.INVISIBLE)
-    HelperFactory.setHelper(getApplicationContext)
+    saveBtn.setOnClickListener(new View.OnClickListener {
+      override def onClick(v: View): Unit = {
+        val profile = new Profile(nativeLanguage)
+        profileRepository.create(profile)
+      }
+    })
+
+    if (profileRepository.getProfile != null) {
+      Toast.makeText(getApplicationContext, "profile created", Toast.LENGTH_LONG).show()
+    }
 
     def updateSaveBtn() {
       if (!Option(learningLanguage).getOrElse("").isEmpty && !Option(nativeLanguage).getOrElse("").isEmpty) {
@@ -46,7 +59,7 @@ class MainActivity extends Activity {
         updateSaveBtn()
       }
 
-      override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit ={
+      override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit = {
         nativeLanguage = selectNativeLanguage.getSelectedItem.asInstanceOf[String]
         updateSaveBtn()
       }
@@ -58,7 +71,7 @@ class MainActivity extends Activity {
         updateSaveBtn()
       }
 
-      override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit ={
+      override def onItemSelected(parent: AdapterView[_], view: View, position: Int, id: Long): Unit = {
         learningLanguage = selectLearningLanguage.getSelectedItem.asInstanceOf[String]
         updateSaveBtn()
       }
