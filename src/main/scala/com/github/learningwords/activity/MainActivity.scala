@@ -1,12 +1,14 @@
 package com.github.learningwords.activity
 
 import android.app.Activity
-import android.os.Bundle
+import android.os.{Environment, StrictMode, Bundle}
 import android.view.{Menu, MenuItem, View}
 import android.widget._
 import com.github.learningwords.domain.Profile
 import com.github.learningwords.repository.ProfileRepository
 import com.github.learningwords.repository.util.HelperFactory
+import com.github.learningwords.service.MediaService
+import com.github.learningwords.service.pronunciation.{PronounceService, PronounceServiceType}
 import com.github.learningwords.util.LanguageReader
 import com.github.learningwords.{Language, R}
 
@@ -24,20 +26,38 @@ class MainActivity extends Activity {
   private var nativeLanguage: String = null
   private var learningLanguage: String = null
   private var saveBtn: ImageButton = null
+  private var loadPronounceButton: Button = null
+  private val pronounceService = PronounceService(PronounceServiceType.Google)
+  private var mediaService: MediaService = null
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
     HelperFactory.setHelper(getApplicationContext)
+    mediaService = new MediaService(getApplicationContext)
     val profileRepository = HelperFactory.helper().getRepository(classOf[ProfileRepository])
     selectNativeLanguage = findViewById(R.id.selectNativeLanguage).asInstanceOf[Spinner]
     selectLearningLanguage = findViewById(R.id.selectLearningLanguage).asInstanceOf[Spinner]
     saveBtn = findViewById(R.id.saveBtn).asInstanceOf[ImageButton]
+    loadPronounceButton = findViewById(R.id.loadPronounceButton).asInstanceOf[Button]
     saveBtn.setVisibility(View.INVISIBLE)
+
+    val policy = new StrictMode.ThreadPolicy.Builder().permitAll().build()
+    StrictMode.setThreadPolicy(policy)
+
+
     saveBtn.setOnClickListener(new View.OnClickListener {
       override def onClick(v: View): Unit = {
         val profile = new Profile(nativeLanguage)
         profileRepository.create(profile)
+      }
+    })
+    loadPronounceButton.setOnClickListener(new View.OnClickListener {
+      override def onClick(v: View): Unit = {
+        val is = pronounceService.getPronunciationAsStream("en", "hello")
+        val fileName: String = "hello.mp3"
+        mediaService.save(fileName, is)
+        Toast.makeText(getApplicationContext, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + fileName, Toast.LENGTH_LONG).show()
       }
     })
 
