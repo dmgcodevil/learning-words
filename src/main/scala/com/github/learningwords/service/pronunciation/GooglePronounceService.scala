@@ -1,17 +1,16 @@
 package com.github.learningwords.service.pronunciation
 
 import java.io.InputStream
-import java.net.URL
-import java.text.MessageFormat.format
+
+import com.github.learningwords.Language
+import com.github.learningwords.http.RequestParameters
 
 class GooglePronounceService extends PronounceService {
 
-  val baseUrl = "http://translate.google.com/translate_tts?tl={0}&q=\"{1}\""
+  val googleBaseUrl = "http://translate.google.com/translate_tts"
+  val baseUrl = "http://soundoftext.com/audio/Russian/{word}.mp3"
 
-  override def getPronunciationAsStream(lang: String, text: String): InputStream = {
-    val url = new URL(format(baseUrl, lang, text))
-    val httpcon = url.openConnection()
-    httpcon.addRequestProperty("User-Agent", "anything")
-    httpcon.getInputStream
+  override def getPronunciationAsStream(lang: Language, text: String): InputStream = {
+    httpTemplate.getForStream(baseUrl, RequestParameters.create().addQueryParam("tl", lang.shortcut).addQueryParam("q", text))
   }
 }
