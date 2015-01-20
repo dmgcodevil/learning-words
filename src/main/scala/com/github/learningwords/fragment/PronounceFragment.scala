@@ -1,16 +1,17 @@
 package com.github.learningwords.fragment
 
 
-import java.io.{IOException, File, FileInputStream, InputStream}
+import java.io.{File, FileInputStream}
 
 import android.app._
 import android.content.{Context, DialogInterface}
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
-import android.os.{Bundle, Environment}
+import android.os.{SystemClock, Bundle, Environment}
 import android.view.{LayoutInflater, View, ViewGroup}
-import android.widget.{ImageButton, ProgressBar, Toast}
-import com.github.learningwords.android.common.task.{TaskParams, AsyncTask}
+import android.widget.{ImageButton, Toast}
+import com.github.learningwords.android.common.task.TaskParams
+import com.github.learningwords.fragment.basic.{AsyncTaskUIAware, TaskFragment}
 import com.github.learningwords.service.MediaService
 import com.github.learningwords.service.pronunciation.{PronounceService, PronounceServiceType}
 import com.github.learningwords.util.NetworkUtils
@@ -33,7 +34,6 @@ class PronounceFragment extends Fragment {
   private var mProgressDialog: ProgressDialog = null
   private var activity: Activity = null;
 
-
   // Save a reference to the fragment manager. This is initialised in onCreate().
   private var mFM: FragmentManager = null
 
@@ -52,7 +52,7 @@ class PronounceFragment extends Fragment {
 
     // At this point the fragment may have been recreated due to a rotation,
     // and there may be a TaskFragment lying around. So see if we can find it.
-    mFM = getFragmentManager();
+    mFM = getFragmentManager
     // Check to see if we have retained the worker fragment.
     val taskFragment = mFM.findFragmentByTag(PronounceFragment.TASK_FRAGMENT_TAG);
 
@@ -105,7 +105,7 @@ class PronounceFragment extends Fragment {
     })
 
 
-activity = getActivity();
+    activity = getActivity();
 
 
     downloadButton.setOnClickListener(new View.OnClickListener() {
@@ -124,26 +124,17 @@ activity = getActivity();
         //          })
         //        }
 
-        val taskFragment = new TaskFragment();
+        val taskFragment = new TaskFragment[Word, String]()
         // And create a task for it to monitor. In this implementation the taskFragment
         // executes the task, but you could change it so that it is started here.
-        taskFragment.setTask(new MyTask(new Action[String] {
-          override def doAction(): String = {
-            val stream = pronounceService.getPronunciationAsStream(word.lang, word.value)
-            fileName = mediaService.save(word, stream)
-            fileName
-          }
-
-          override def onComplete(): Unit = {
-            Toast.makeText(activity.getApplicationContext, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
-          }
-        }));
+        taskFragment.setTask(new DownloadPronouncationTask())
+        taskFragment.setParameters(Array(word))
         // And tell it to call onActivityResult() on this fragment.
-        taskFragment.setTargetFragment(PronounceFragment.this, PronounceFragment.TASK_FRAGMENT);
+        taskFragment.setTargetFragment(PronounceFragment.this, PronounceFragment.TASK_FRAGMENT)
 
         // Show the fragment.
         // I'm not sure which of the following two lines is best to use but this one works well.
-        taskFragment.show(mFM, PronounceFragment.TASK_FRAGMENT_TAG);
+        taskFragment.show(mFM, PronounceFragment.TASK_FRAGMENT_TAG)
         //      mFM.beginTransaction().add(taskFragment, TASK_FRAGMENT_TAG).commit();
       }
 
@@ -185,29 +176,14 @@ activity = getActivity();
     false // todo implement it
   }
 
-  class DownloadPronouncationTask extends AsyncTask[Word, Unit, String] {
-
-    override def onPostExecute(result: String): Unit = {
-      super.onPostExecute(result)
+  class DownloadPronouncationTask extends AsyncTaskUIAware[Word, Integer, String] {
+    override  def doPostExecute(result: String): Unit = {
       complete(result)
     }
 
-    override def onCancelled(): Unit = {
-      super.onCancelled()
-      fileName = null
-      if (!mediaService.exists(word)) {
-        playButton.setEnabled(false)
-      }
-    }
-
-    override def onCancelled(result: String): Unit = {
-      super.onCancelled(result)
-      complete(result)
-    }
-
-    override protected def doInBackground(params: TaskParams[Word]): String = {
-      Thread.sleep(3000)
+    override  def perform(params: TaskParams[Word]): String = {
       val param = params.getParams(0)
+      SystemClock.sleep(1000) // for testing purposes
       val stream = pronounceService.getPronunciationAsStream(param.lang, param.value)
       fileName = mediaService.save(word, stream)
       fileName
@@ -215,8 +191,7 @@ activity = getActivity();
   }
 
   private def complete(result: String): String = {
-    Toast.makeText(getActivity.getApplicationContext, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
-    mProgressDialog.dismiss()
+    Toast.makeText(activity.getApplicationContext, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
     playButton.setEnabled(true)
     result
   }
@@ -226,10 +201,10 @@ object PronounceFragment {
   val WORD = "word"
   // Code to identify the fragment that is calling onActivityResult(). We don't really need
   // this since we only have one fragment to deal with.
-  val TASK_FRAGMENT = 0;
+  val TASK_FRAGMENT = 0
 
   // Tag so we can find the task fragment again, in another instance of this fragment after rotation.
-  val TASK_FRAGMENT_TAG = "task";
+  val TASK_FRAGMENT_TAG = "task"
 
   def apply(word: Word): PronounceFragment = {
     val fragment = new PronounceFragment()
