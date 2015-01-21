@@ -40,6 +40,7 @@ class PronounceFragment extends Fragment {
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
+    activity = getActivity
     setRetainInstance(true)
 
     mediaService = new MediaService(getActivity.getApplicationContext)
@@ -66,23 +67,22 @@ class PronounceFragment extends Fragment {
     }
   }
 
-  //  override def onAttach( activity: Activity)=
-  //  {
-  //    super.onAttach(activity);
-  //    if (!(activity instanceof Callbacks))
-  //    {
-  //      throw new IllegalStateException("Activity must implement fragment's callbacks.");
-  //    }
-  //    mCallbacks = (Callbacks) activity;
-  //  }
-  //
-  //  @Override
-  //  public void onDetach()
-  //  {
-  //    super.onDetach();
-  //    mCallbacks = sDummyCallbacks;
+
+  //  override  def onSaveInstanceState(outState: Bundle) {
+  //    //No call for super(). Bug on API Level > 11.
   //  }
 
+  private def loadPronunciation(): Unit = {
+    val taskFragment = new TaskFragment[Word, String]()
+    taskFragment.title = "Loading pronunciation..."
+    val downloadTsk = new DownloadPronouncationTask()
+    taskFragment.setTask(downloadTsk)
+    // tell it to call onActivityResult() on this fragment.
+    taskFragment.setTargetFragment(PronounceFragment.this, PronounceFragment.TASK_FRAGMENT)
+    // taskFragment.show(mFM, PronounceFragment.TASK_FRAGMENT_TAG)
+    mFM.beginTransaction().add(taskFragment, PronounceFragment.TASK_FRAGMENT_TAG).commitAllowingStateLoss();
+    downloadTsk.execute(Array(word): _*)
+  }
 
   override def onCreateView(inflater: LayoutInflater, container: ViewGroup,
                             savedInstanceState: Bundle): View = {
@@ -104,41 +104,18 @@ class PronounceFragment extends Fragment {
       }
     })
 
-
-    activity = getActivity();
-
-
     downloadButton.setOnClickListener(new View.OnClickListener() {
 
       override def onClick(v: View): Unit = {
-        //        if (!isNetworkAvailable) {
-        //          showErrorDialog()
-        //
-        //        } else {
-        //          mProgressDialog = ProgressDialog.show(getActivity, "Load pronunciation", "loading...", true, true)
-        //          val task = new DownloadPronouncationTask().execute(word)
-        //          mProgressDialog.setOnCancelListener(new DialogInterface.OnCancelListener {
-        //            override def onCancel(dialog: DialogInterface): Unit = {
-        //              task.cancel(true)
-        //            }
-        //          })
-        //        }
+        if (!isNetworkAvailable) {
+          showErrorDialog()
 
-        val taskFragment = new TaskFragment[Word, String]()
-        // And create a task for it to monitor. In this implementation the taskFragment
-        // executes the task, but you could change it so that it is started here.
-        taskFragment.setTask(new DownloadPronouncationTask())
-        taskFragment.setParameters(Array(word))
-        // And tell it to call onActivityResult() on this fragment.
-        taskFragment.setTargetFragment(PronounceFragment.this, PronounceFragment.TASK_FRAGMENT)
-
-        // Show the fragment.
-        // I'm not sure which of the following two lines is best to use but this one works well.
-        taskFragment.show(mFM, PronounceFragment.TASK_FRAGMENT_TAG)
-        //      mFM.beginTransaction().add(taskFragment, TASK_FRAGMENT_TAG).commit();
+        } else {
+          loadPronunciation()
+        }
       }
-
     })
+
     playButton.setOnClickListener(new View.OnClickListener() {
 
       override def onClick(v: View): Unit = {
@@ -177,22 +154,44 @@ class PronounceFragment extends Fragment {
   }
 
   class DownloadPronouncationTask extends AsyncTaskUIAware[Word, Integer, String] {
-    override  def doPostExecute(result: String): Unit = {
+    override def doPostExecute(result: String): Unit = {
       complete(result)
     }
 
-    override  def perform(params: TaskParams[Word]): String = {
+    override def perform(params: TaskParams[Word]): String = {
       val param = params.getParams(0)
       SystemClock.sleep(1000) // for testing purposes
-      val stream = pronounceService.getPronunciationAsStream(param.lang, param.value)
-      fileName = mediaService.save(word, stream)
+      try {
+        val stream = pronounceService.getPronunciationAsStream(param.lang, param.value)
+        fileName = mediaService.save(word, stream)
+      } catch {
+        case _: java.lang.Throwable => fileName = ""
+      }
       fileName
     }
   }
 
   private def complete(result: String): String = {
-    Toast.makeText(activity.getApplicationContext, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
-    playButton.setEnabled(true)
+    if (result.isEmpty) {
+      new AlertDialog.Builder(activity)
+        .setTitle("Failed to download pronunciation")
+        .setMessage("Do you want to retry ?")
+        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+        override def onClick(dialog: DialogInterface, which: Int) {
+          loadPronunciation()
+        }
+      })
+        .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+        override def onClick(dialog: DialogInterface, which: Int) {
+          // do nothing
+        }
+      })
+        .setIcon(android.R.drawable.ic_dialog_alert)
+        .show()
+    } else {
+      Toast.makeText(activity.getApplicationContext, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
+      playButton.setEnabled(true)
+    }
     result
   }
 }

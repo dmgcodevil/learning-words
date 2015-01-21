@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:padding="10dp">
 
 
 
@@ -9,19 +10,23 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/progressBarS"
+        android:layout_marginLeft="35dp"
+        android:layout_marginStart="35dp"
+        android:layout_marginTop="38dp"
+        android:layout_alignParentTop="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="New Button"
-        android:id="@+id/button"
-        android:layout_below="@+id/progressBarS"
+        android:text="Cancel"
+        android:id="@+id/cancelButton"
+        android:layout_marginLeft="42dp"
+        android:layout_marginStart="42dp"
+        android:layout_alignTop="@+id/progressBarS"
         android:layout_toRightOf="@+id/progressBarS"
-        android:layout_toEndOf="@+id/progressBarS"
-        android:layout_marginLeft="36dp"
-        android:layout_marginStart="36dp" />
+        android:layout_toEndOf="@+id/progressBarS" />
 
 
 </RelativeLayout>

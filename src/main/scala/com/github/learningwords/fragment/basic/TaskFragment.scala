@@ -1,15 +1,11 @@
 package com.github.learningwords.fragment.basic
 
 
-import android.app.Activity
-import android.app.DialogFragment
+import android.app.{Activity, DialogFragment}
 import android.content.DialogInterface
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ProgressBar
-
+import android.view.{LayoutInflater, View, ViewGroup}
+import android.widget.{Button, ProgressBar}
 import com.github.learningwords.R
 
 import scala.reflect.ClassTag
@@ -29,7 +25,8 @@ class TaskFragment[Params: ClassTag, Result] extends DialogFragment with AsyncTa
   private var parameters = Array[Params]()
   private var mProgressBar: ProgressBar = null
   private var onTaskFinishListener: OnTaskFinishListener[Result] = null
-
+  private var cancelButton: Button = null
+  var title = ""
 
   def setTask(asyncTask: AsyncTaskUIAware[Params, Integer, Result]): Unit = {
     this.asyncTask = asyncTask
@@ -54,21 +51,27 @@ class TaskFragment[Params: ClassTag, Result] extends DialogFragment with AsyncTa
     setRetainInstance(true)
 
     // Start the task! You could move this outside this activity if you want.
-    if (asyncTask != null) {
-      if (parameters != null && parameters.length > 0) {
-        asyncTask.execute(parameters: _*)
-      } else {
-        asyncTask.execute()
-      }
-    }
+    //    if (asyncTask != null) {
+    //      if (parameters != null && parameters.length > 0) {
+    //        asyncTask.execute(parameters: _*)
+    //      } else {
+    //        asyncTask.execute()
+    //      }
+    //    }
   }
 
   override def onCreateView(inflater: LayoutInflater, container: ViewGroup,
                             savedInstanceState: Bundle): View = {
     val view = inflater.inflate(R.layout.fragment_task, container)
     mProgressBar = view.findViewById(R.id.progressBarS).asInstanceOf[ProgressBar]
+    cancelButton = view.findViewById(R.id.cancelButton).asInstanceOf[Button]
+    cancelButton.setOnClickListener(new View.OnClickListener {
+      override def onClick(v: View): Unit = {
+        dismiss()
+      }
+    })
 
-    getDialog.setTitle("Progress Dialog")
+    getDialog.setTitle(title)
 
 
     // If you're doing a long task, you probably don't want people to cancel
