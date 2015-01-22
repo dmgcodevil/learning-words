@@ -5,8 +5,6 @@ import java.io.InputStream
 import com.github.learningwords.Language
 import com.github.learningwords.exception.HttpClientException
 import com.github.learningwords.http.RequestParameters
-import com.github.learningwords.service.pronunciation.PronounceService
-import org.apache.http.StatusLine
 
 class SoundoftextPronounceService extends PronounceService {
 
