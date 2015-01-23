@@ -26,6 +26,10 @@
             android:name=".activity.MenuActivity"
             android:label="@string/title_activity_menu" >
         </activity>
+        <activity
+            android:name=".activity.VocabularyActivity"
+            android:label="@string/title_activity_main" >
+        </activity>
     </application>
 
 </manifest>
