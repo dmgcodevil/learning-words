@@ -8,6 +8,7 @@ import android.widget.SearchView
 import android.widget.SimpleCursorAdapter
 import android.os.Bundle
 import android.database.AbstractCursor
+import android.content.Intent
 
 import com.github.learningwords.R
 import com.github.learningwords.repository.VocabularyStorage
@@ -37,6 +38,10 @@ class VocabularyActivity extends ListActivity {
         false
       }
     })
+  }
+
+  protected override def onStart() {
+    super.onStart()
     setQuery("")
   }
 
@@ -65,6 +70,8 @@ class VocabularyActivity extends ListActivity {
   }
 
   private def addTranslation() {
+    val intent = new Intent(getApplicationContext, classOf[TranslationActivity])
+    startActivity(intent)
   }
 
   private class SeqCursor(seq: Seq[(String, String)]) extends AbstractCursor {

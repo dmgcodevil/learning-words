@@ -30,6 +30,10 @@
             android:name=".activity.VocabularyActivity"
             android:label="@string/title_activity_main" >
         </activity>
+        <activity
+            android:name=".activity.TranslationActivity"
+            android:label="@string/title_activity_main" >
+        </activity>
     </application>
 
 </manifest>
