@@ -57,6 +57,7 @@ dependencies {
     compile 'com.j256.ormlite:ormlite-android:4.48'
 
     compile 'org.apache.httpcomponents:httpclient-android:4.3.5'
+    compile 'com.google.guava:guava:18.0'
     //compile 'com.loopj.android:android-async-http:1.4.6'
    // compile 'com.fasterxml.jackson.core:jackson-databind:2.4.2'
 }

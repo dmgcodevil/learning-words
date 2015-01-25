@@ -13,7 +13,7 @@ public abstract class AsyncTask<Params, Progress, Result> extends android.os.Asy
 
     protected abstract Result doInBackground(TaskParams<Params> params);
 
-    abstract protected void onProgressUpdate(List<Progress> progresses);
+   protected abstract  void onProgressUpdate(List<Progress> progresses);
 
     @Override
     protected final void onProgressUpdate(Progress... values) {

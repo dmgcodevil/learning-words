@@ -2,20 +2,25 @@ package com.github.learningwords.fragment
 
 
 import java.io.{File, FileInputStream}
+import java.util
+import java.util.UUID
 
 import android.app._
 import android.content.{Context, DialogInterface}
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.os.{SystemClock, Bundle, Environment}
+import com.github.learningwords.android.common.task.{TaskParams, AsyncTask}
 import android.view.{LayoutInflater, View, ViewGroup}
-import android.widget.{ImageButton, Toast}
-import com.github.learningwords.android.common.task.TaskParams
-import com.github.learningwords.fragment.basic.{AsyncTaskUIAware, TaskFragment}
+import android.widget._
+import com.github.learningwords.basic.dialog.{CustomProgressDialog, CustomAlertDialog}
+import com.github.learningwords.basic.task.event.TaskCompletionStatus.TaskCompletionStatus
+import com.github.learningwords.basic.task.event._
 import com.github.learningwords.service.MediaService
 import com.github.learningwords.service.pronunciation.{PronounceService, PronounceServiceType}
 import com.github.learningwords.util.NetworkUtils
 import com.github.learningwords.{R, Word}
+import com.google.common.eventbus.{EventBus, Subscribe}
 
 
 class PronounceFragment extends Fragment {
@@ -31,62 +36,43 @@ class PronounceFragment extends Fragment {
   private val mp = new MediaPlayer()
   private var mediaService: MediaService = null
   private var fileName: String = null
-  private var mProgressDialog: ProgressDialog = null
-  private var activity: Activity = null;
+  private var task: LoadPronunciationTask = null
+
 
   // Save a reference to the fragment manager. This is initialised in onCreate().
   private var mFM: FragmentManager = null
 
-
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
-    activity = getActivity
     setRetainInstance(true)
 
     mediaService = new MediaService(getActivity.getApplicationContext)
-
-
 
     if (getArguments != null) {
       word = getArguments.getSerializable(PronounceFragment.WORD).asInstanceOf[Word]
     }
 
-    // At this point the fragment may have been recreated due to a rotation,
-    // and there may be a TaskFragment lying around. So see if we can find it.
-    mFM = getFragmentManager
-    // Check to see if we have retained the worker fragment.
-    val taskFragment = mFM.findFragmentByTag(PronounceFragment.TASK_FRAGMENT_TAG);
 
-    if (taskFragment != null) {
-      // Update the target fragment so it goes to this fragment instead of the old one.
-      // This will also allow the GC to reclaim the old MainFragment, which the TaskFragment
-      // keeps a reference to. Note that I looked in the code and setTargetFragment() doesn't
-      // use weak references. To be sure you aren't leaking, you may wish to make your own
-      // setTargetFragment() which does.
-      taskFragment.setTargetFragment(this, PronounceFragment.TASK_FRAGMENT);
+  }
+
+  override def onCreateView(inflater: LayoutInflater, container: ViewGroup, savedInstanceState: Bundle): View = {
+    val view: View = inflater.inflate(R.layout.fragment_pronounce, container, false)
+
+
+    if (task != null && (task.getStatus == android.os.AsyncTask.Status.RUNNING) && task.isSuccess) {
+      showLoadProgressFragment(task)
     }
-  }
-
-
-  //  override  def onSaveInstanceState(outState: Bundle) {
-  //    //No call for super(). Bug on API Level > 11.
-  //  }
-
-  private def loadPronunciation(): Unit = {
-    val taskFragment = new TaskFragment[Word, String]()
-    taskFragment.title = "Loading pronunciation..."
-    val downloadTsk = new DownloadPronouncationTask()
-    taskFragment.setTask(downloadTsk)
-    // tell it to call onActivityResult() on this fragment.
-    taskFragment.setTargetFragment(PronounceFragment.this, PronounceFragment.TASK_FRAGMENT)
-    // taskFragment.show(mFM, PronounceFragment.TASK_FRAGMENT_TAG)
-    mFM.beginTransaction().add(taskFragment, PronounceFragment.TASK_FRAGMENT_TAG).commitAllowingStateLoss();
-    downloadTsk.execute(Array(word): _*)
-  }
-
-  override def onCreateView(inflater: LayoutInflater, container: ViewGroup,
-                            savedInstanceState: Bundle): View = {
-    val view = inflater.inflate(R.layout.fragment_pronounce, container, false).asInstanceOf[View]
+    if (task != null && task.isFailed) {
+      if (getActivity.getFragmentManager.findFragmentByTag(CustomAlertDialog.TAG) == null) {
+        val customAlertDialog: CustomAlertDialog = new CustomAlertDialog
+        val bundle: Bundle = new Bundle
+        bundle.putSerializable(EventUtils.EVENT_BUS, task.getKey)
+        customAlertDialog.setArguments(bundle)
+        val transaction: FragmentTransaction = getActivity.getFragmentManager.beginTransaction
+        transaction.add(customAlertDialog, CustomAlertDialog.TAG)
+        transaction.commit
+      }
+    }
     playButton = view.findViewById(R.id.playButton).asInstanceOf[ImageButton]
     if (!mediaService.exists(word)) {
       playButton.setEnabled(false)
@@ -94,6 +80,11 @@ class PronounceFragment extends Fragment {
       fileName = mediaService.buildFilePath(word)
     }
     downloadButton = view.findViewById(R.id.downloadBtn).asInstanceOf[ImageButton]
+    downloadButton.setOnClickListener(new View.OnClickListener {
+      def onClick(v: View) {
+        startTask
+      }
+    })
     openButton = view.findViewById(R.id.openBtn).asInstanceOf[ImageButton]
     recordButton = view.findViewById(R.id.addPronunciation).asInstanceOf[ImageButton]
 
@@ -103,19 +94,6 @@ class PronounceFragment extends Fragment {
         System.out.println()
       }
     })
-
-    downloadButton.setOnClickListener(new View.OnClickListener() {
-
-      override def onClick(v: View): Unit = {
-        if (!isNetworkAvailable) {
-          showErrorDialog()
-
-        } else {
-          loadPronunciation()
-        }
-      }
-    })
-
     playButton.setOnClickListener(new View.OnClickListener() {
 
       override def onClick(v: View): Unit = {
@@ -128,7 +106,70 @@ class PronounceFragment extends Fragment {
         }
       }
     })
-    view
+
+    return view
+  }
+
+  @Subscribe def startTask(startTaskEvent: StartTaskEvent) {
+    startTask
+  }
+
+  override def onResume {
+    super.onResume
+    if (task != null && (task.getStatus == android.os.AsyncTask.Status.RUNNING) && task.isSuccess) {
+      showLoadProgressFragment(task)
+    }
+  }
+
+  private def startTask {
+    if (task != null) {
+      EventBusManager.instance.removeEventBus(task.getKey)
+    }
+    task = new LoadPronunciationTask()
+    task.subscribe(PronounceFragment.this)
+    showLoadProgressFragment(task)
+    task.execute()
+  }
+
+  private def showLoadProgressFragment(asyncTask: LoadPronunciationTask) {
+    val fm: FragmentManager = getActivity.getFragmentManager
+    val loadProgressFragment: CustomProgressDialog = new CustomProgressDialog
+    val bundle: Bundle = new Bundle
+    bundle.putSerializable(EventUtils.EVENT_BUS, asyncTask.getKey)
+    loadProgressFragment.setArguments(bundle)
+    asyncTask.subscribe(loadProgressFragment)
+    loadProgressFragment.show(fm, CustomProgressDialog.TAG_LOAD_PROGRESS_DIALOG)
+  }
+
+  override def onAttach(activity: Activity) {
+    super.onAttach(activity)
+  }
+
+  override def onDetach {
+    super.onDetach
+  }
+
+  override def onPause {
+    super.onPause
+    val fragment: Fragment = getActivity.getFragmentManager.findFragmentByTag(CustomProgressDialog.TAG_LOAD_PROGRESS_DIALOG)
+    if (fragment != null) {
+      getActivity.getFragmentManager.beginTransaction.remove(fragment).commitAllowingStateLoss
+    }
+
+    val alertDialog: Fragment = getActivity.getFragmentManager.findFragmentByTag(CustomAlertDialog.TAG)
+    if (alertDialog != null) {
+      getActivity.getFragmentManager.beginTransaction.remove(alertDialog).commitAllowingStateLoss
+    }
+  }
+
+  override def onDestroy {
+    super.onDestroy
+    if (task != null && (task.getStatus == android.os.AsyncTask.Status.FINISHED)) {
+      EventBusManager.instance.removeEventBus(task.getKey)
+    }
+  }
+
+  override def onSaveInstanceState(outState: Bundle) {
   }
 
   private def isNetworkAvailable = NetworkUtils.isNetworkAvailable(
@@ -153,57 +194,114 @@ class PronounceFragment extends Fragment {
     false // todo implement it
   }
 
-  class DownloadPronouncationTask extends AsyncTaskUIAware[Word, Integer, String] {
-    override def doPostExecute(result: String): Unit = {
-      complete(result)
+
+  class LoadPronunciationTask extends AsyncTask[Void, Integer, Void] {
+
+    private var key: String = UUID.randomUUID.toString
+    private var eventBus: EventBus = new EventBus
+    private var completionStatus: TaskCompletionStatus = TaskCompletionStatus.UNKNOWN
+
+    {
+      eventBus.register(LoadPronunciationTask.this)
+      EventBusManager.instance.store(key, eventBus)
     }
 
-    override def perform(params: TaskParams[Word]): String = {
-      val param = params.getParams(0)
-      SystemClock.sleep(1000) // for testing purposes
-      try {
-        val stream = pronounceService.getPronunciationAsStream(param.lang, param.value)
-        fileName = mediaService.save(word, stream)
-      } catch {
-        case _: java.lang.Throwable => fileName = ""
+    def isSuccess: Boolean = {
+      TaskCompletionStatus.SUCCESS.equals(completionStatus) || TaskCompletionStatus.UNKNOWN.equals(completionStatus)
+    }
+
+    def isFailed: Boolean = {
+      TaskCompletionStatus.FAILED.equals(completionStatus)
+    }
+
+
+    def getKey = key
+
+    def getEventBus = eventBus
+
+    def subscribe(subscriber: AnyRef) {
+      eventBus.register(subscriber)
+    }
+
+    protected override def onPreExecute {
+      //textView.setText("start loading")
+    }
+
+    /**
+     * Note that we do NOT call the callback object's methods
+     * directly from the background thread, as this could result
+     * in a race condition.
+     */
+
+
+    override def onCancelled {
+      //textView.setText("canceled")
+      eventBus.post(new CancelledEvent)
+      EventBusManager.instance.removeEventBus(key)
+    }
+
+    @Subscribe def onCancelEvent(cancelEvent: CancelEvent) {
+      cancel(cancelEvent.isMayInterruptIfRunning)
+    }
+
+    @Subscribe def onChangeCompletionStatus(event: ChangeCompletionStatus) {
+      completionStatus = event.getStatus
+    }
+
+    override def onPostExecute(ignore: Void) {
+      // textView.setText("done")
+      eventBus.post(new CompleteEvent)
+      if (isFailed) {
+        createAlertDialog
       }
-      fileName
+      else {
+        eventBus.unregister(this)
+        EventBusManager.instance.removeEventBus(key)
+        Toast.makeText(getActivity, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
+        playButton.setEnabled(true)
+      }
+    }
+
+    private def createAlertDialog {
+      val customAlertDialog: CustomAlertDialog = new CustomAlertDialog
+      val bundle: Bundle = new Bundle
+      bundle.putSerializable(EventUtils.EVENT_BUS, key)
+      customAlertDialog.setArguments(bundle)
+      val transaction: FragmentTransaction = getActivity.getFragmentManager.beginTransaction
+      transaction.add(customAlertDialog, CustomAlertDialog.TAG)
+      transaction.commitAllowingStateLoss
+    }
+
+
+    override protected def doInBackground(params: TaskParams[Void]): Void = {
+
+      try {
+        SystemClock.sleep(3000) // for testing purposes
+        val stream = pronounceService.getPronunciationAsStream(word.lang, word.value)
+        fileName = mediaService.save(word, stream)
+        completionStatus = TaskCompletionStatus.SUCCESS
+      }
+      catch {
+        case e: Exception => {
+          completionStatus = TaskCompletionStatus.FAILED
+        }
+      }
+      null
+
+    }
+
+    override protected def onProgressUpdate(progresses: util.List[Integer]): Unit = {
+      // val progressUpdateEvent: ProgressUpdateEvent = new ProgressUpdateEvent(progresses.get(0))
+      //textView.setText("in progress...")
+      // eventBus.post(progressUpdateEvent)
     }
   }
 
-  private def complete(result: String): String = {
-    if (result.isEmpty) {
-      new AlertDialog.Builder(activity)
-        .setTitle("Failed to download pronunciation")
-        .setMessage("Do you want to retry ?")
-        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-        override def onClick(dialog: DialogInterface, which: Int) {
-          loadPronunciation()
-        }
-      })
-        .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
-        override def onClick(dialog: DialogInterface, which: Int) {
-          // do nothing
-        }
-      })
-        .setIcon(android.R.drawable.ic_dialog_alert)
-        .show()
-    } else {
-      Toast.makeText(activity.getApplicationContext, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
-      playButton.setEnabled(true)
-    }
-    result
-  }
+
 }
 
 object PronounceFragment {
   val WORD = "word"
-  // Code to identify the fragment that is calling onActivityResult(). We don't really need
-  // this since we only have one fragment to deal with.
-  val TASK_FRAGMENT = 0
-
-  // Tag so we can find the task fragment again, in another instance of this fragment after rotation.
-  val TASK_FRAGMENT_TAG = "task"
 
   def apply(word: Word): PronounceFragment = {
     val fragment = new PronounceFragment()

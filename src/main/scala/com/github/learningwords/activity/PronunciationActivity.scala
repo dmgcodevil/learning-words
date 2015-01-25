@@ -1,6 +1,6 @@
 package com.github.learningwords.activity
 
-import android.app.Activity
+import android.app.{FragmentManager, Activity}
 import android.os.Bundle
 import android.view.{Menu, MenuItem}
 import android.widget.{LinearLayout, TextView}
@@ -9,11 +9,19 @@ import com.github.learningwords.fragment.PronounceFragment
 
 class PronunciationActivity extends Activity {
 
+  private val PRONOUNCE_FRAGMENT_TAG = "pronounceFragment"
+
+  val PRONOUNCE_FRAGMENT_NATIVE_TAG = PRONOUNCE_FRAGMENT_TAG + "_native"
+  val PRONOUNCE_FRAGMENT_FOREIGN_TAG = PRONOUNCE_FRAGMENT_TAG + "_foreign"
+
+  private var pronounceNativeFragment: PronounceFragment = null
+  private var pronounceForeignFragment: PronounceFragment = null
+
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_pronunciation)
 
-
+    val fm: FragmentManager = getFragmentManager
 
     val nativeWord = getIntent.getExtras.get("nativeWord").asInstanceOf[Word]
     val foreignWord = getIntent.getExtras.get("foreignWord").asInstanceOf[Word]
@@ -21,11 +29,30 @@ class PronunciationActivity extends Activity {
     val nativeWordTextView = findViewById(R.id.nativeWordTextView).asInstanceOf[TextView]
     val foreignWordTextView = findViewById(R.id.addPronunciation).asInstanceOf[TextView]
 
-    val nativeFragContainer = findViewById(R.id.native_pronounce_Container).asInstanceOf[LinearLayout]
-    getFragmentManager.beginTransaction().replace(nativeFragContainer.getId, PronounceFragment(nativeWord)).commit()
+    pronounceNativeFragment = fm.findFragmentByTag(PRONOUNCE_FRAGMENT_NATIVE_TAG).asInstanceOf[PronounceFragment]
+    pronounceForeignFragment = fm.findFragmentByTag(PRONOUNCE_FRAGMENT_FOREIGN_TAG).asInstanceOf[PronounceFragment]
 
-    val foreignFragContainer = findViewById(R.id.foreign_pronounce_Container).asInstanceOf[LinearLayout]
-    getFragmentManager.beginTransaction().replace(foreignFragContainer.getId, PronounceFragment(foreignWord)).commit()
+
+
+    // If the Fragment is non-null, then it is currently being
+    // retained across a configuration change.
+
+
+    if (pronounceNativeFragment == null) {
+      pronounceNativeFragment = PronounceFragment(nativeWord)
+      val container: LinearLayout = findViewById(R.id.native_pronounce_Container).asInstanceOf[LinearLayout]
+      fm.beginTransaction.add(pronounceNativeFragment, PRONOUNCE_FRAGMENT_NATIVE_TAG).commit
+      fm.beginTransaction.replace(container.getId, pronounceNativeFragment).commit
+    }
+
+
+
+    if (pronounceForeignFragment == null) {
+      pronounceForeignFragment = PronounceFragment(foreignWord)
+      val container: LinearLayout = findViewById(R.id.foreign_pronounce_Container).asInstanceOf[LinearLayout]
+      fm.beginTransaction.add(pronounceForeignFragment, PRONOUNCE_FRAGMENT_FOREIGN_TAG).commit
+      fm.beginTransaction.replace(container.getId, pronounceForeignFragment).commit
+    }
 
 
     nativeWordTextView.setText(nativeWord.value)
