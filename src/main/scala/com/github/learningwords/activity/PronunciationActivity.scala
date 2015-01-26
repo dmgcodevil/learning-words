@@ -39,7 +39,7 @@ class PronunciationActivity extends Activity {
 
 
     if (pronounceNativeFragment == null) {
-      pronounceNativeFragment = PronounceFragment(nativeWord)
+      pronounceNativeFragment = PronounceFragment(nativeWord, "native")
       val container: LinearLayout = findViewById(R.id.native_pronounce_Container).asInstanceOf[LinearLayout]
       fm.beginTransaction.add(pronounceNativeFragment, PRONOUNCE_FRAGMENT_NATIVE_TAG).commit
       fm.beginTransaction.replace(container.getId, pronounceNativeFragment).commit
@@ -48,7 +48,7 @@ class PronunciationActivity extends Activity {
 
 
     if (pronounceForeignFragment == null) {
-      pronounceForeignFragment = PronounceFragment(foreignWord)
+      pronounceForeignFragment = PronounceFragment(foreignWord, "foreign")
       val container: LinearLayout = findViewById(R.id.foreign_pronounce_Container).asInstanceOf[LinearLayout]
       fm.beginTransaction.add(pronounceForeignFragment, PRONOUNCE_FRAGMENT_FOREIGN_TAG).commit
       fm.beginTransaction.replace(container.getId, pronounceForeignFragment).commit

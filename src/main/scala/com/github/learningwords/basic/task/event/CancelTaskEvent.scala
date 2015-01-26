@@ -5,7 +5,7 @@ package com.github.learningwords.basic.task.event
  *
  * @author dmgcodevil
  */
-class CancelEvent {
+class CancelTaskEvent {
 
   private var mayInterruptIfRunning: Boolean = false
 

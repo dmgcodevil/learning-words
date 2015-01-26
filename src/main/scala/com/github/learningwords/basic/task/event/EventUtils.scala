@@ -1,4 +1,5 @@
 package com.github.learningwords.basic.task.event
+
 import android.os.Bundle
 import com.google.common.eventbus.EventBus
 
@@ -12,7 +13,7 @@ object EventUtils {
    * @return event bus
    */
   def getEventBus(bundle: Bundle): EventBus = {
-    if (bundle.containsKey(EVENT_BUS)) {
+    if (bundle != null && bundle.containsKey(EVENT_BUS)) {
       val key: String = bundle.getString(EVENT_BUS)
       EventBusManager.instance.getEventBus(key)
     }

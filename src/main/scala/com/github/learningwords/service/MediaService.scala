@@ -51,11 +51,17 @@ class MediaService(val context: Context) {
 
 
   def exists(word: Word): Boolean = {
-    val file = new File(buildFilePath(word))
+    val file = new File(getFilePath(word))
     file.exists() && !file.isDirectory
   }
 
+
+  @deprecated
   def buildFilePath(word: Word): String = {
+    Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut + "/" + word.value + ".mp3"
+  }
+
+  def getFilePath(word: Word): String = {
     Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut + "/" + word.value + ".mp3"
   }
 
