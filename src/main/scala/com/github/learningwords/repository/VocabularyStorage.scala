@@ -1,26 +1,37 @@
 package com.github.learningwords.repository
 
+import com.github.learningwords.domain.Word
+import com.github.learningwords.repository.util.HelperFactory
+import collection.JavaConversions._
+
 class VocabularyStorage(fromLanguage: String, toLanguage: String) {
-  def translate(word: String, categories: Option[List[String]]): Seq[String] = {
-    translations.filter(_._1 == word).map(_._2)
+  def translate(word: String, categories: Option[List[String]] = None): Seq[String] = {
+    wordRepo.findWord(word, fromLanguage) match {
+      case Some(word) => wordRepo.findTranslations(word).toList.map(_.word)
+      case None => List()
+    }
   }
 
   def list(filter: String, categories: List[String] = List()): Seq[(String, String)] = {
-    translations.filter(_._1.containsSlice(filter))
+    wordRepo.list(filter)
   }
 
   def add(word: String, translation: String) {
-    translations += word -> translation
+    val fromWord = wordRepo.acquireWord(word, fromLanguage)
+    val toWord = wordRepo.acquireWord(translation, toLanguage)
+    wordRepo.addTranslation(fromWord.id, toWord.id)
   }
 
-  private class TranslationsSeq(storage: VocabularyStorage) extends Seq[(String, String)] {
-    def apply(idx: Int) = storage.translations(idx)
-
-    def length() = storage.translations.length
-
-    def iterator() = storage.translations.iterator
+  def clear() {
+    wordRepo.deleteAll()
+    translationRepo.deleteAll()
   }
 
-  val translations = collection.mutable.ArrayBuffer(
-    "kill" -> "llik", "dead" -> "daed", "time" -> "emit")
+  private val wordRepo = HelperFactory.helper().getRepository(classOf[WordRepository])
+  private val translationRepo = HelperFactory.helper().getRepository(classOf[TranslationRepository])
+}
+
+object VocabularyStorage {
+  def apply(fromLanguage: String, toLanguage: String) =
+    new VocabularyStorage(fromLanguage, toLanguage)
 }
