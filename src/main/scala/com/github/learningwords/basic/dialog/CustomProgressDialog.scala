@@ -43,9 +43,9 @@ class CustomProgressDialog extends DialogFragment {
     dialogLabel = view.findViewById(R.id.dialogLabel).asInstanceOf[TextView]
     dialogLabel.setText(getTitle)
     eventBus = EventUtils.getEventBus(getArguments)
-    if (eventBus != null) {
-      eventBus.register(this)
-    }
+//    if (eventBus != null) {
+//      eventBus.register(this)
+//    }
     cancel.setOnClickListener(new View.OnClickListener {
       def onClick(v: View) {
         if (eventBus != null) {

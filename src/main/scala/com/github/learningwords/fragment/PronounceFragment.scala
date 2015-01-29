@@ -38,10 +38,15 @@ class PronounceFragment extends Fragment {
   private var task: LoadPronunciationTask = null
   private var progressDialogTag = ""
   private var alertDialogTag = ""
+  val eventBusHolder = UUID.randomUUID().toString -> new EventBus()
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
     setRetainInstance(true)
+
+    EventBusManager.instance.store(eventBusHolder._1, eventBusHolder._2)
+    eventBusHolder._2.register(PronounceFragment.this)
+
     mediaService = new MediaService(getActivity.getApplicationContext)
     if (getArguments != null) {
       word = getArguments.getSerializable(PronounceFragment.WORD).asInstanceOf[Word]
@@ -52,7 +57,11 @@ class PronounceFragment extends Fragment {
 
 
   override def onCreateView(inflater: LayoutInflater, container: ViewGroup, savedInstanceState: Bundle): View = {
+    removeIfExists(progressDialogTag)
+    removeIfExists(alertDialogTag)
+    showDialog();
     val view: View = inflater.inflate(R.layout.fragment_pronounce, container, false)
+
     playButton = view.findViewById(R.id.playButton).asInstanceOf[ImageButton]
     if (mediaService.exists(word)) {
       playButton.setEnabled(true)
@@ -90,6 +99,45 @@ class PronounceFragment extends Fragment {
     view
   }
 
+  def removeIfExists(fragmentTag: String) {
+    val fm: FragmentManager = getActivity.getFragmentManager
+    val fragment = fm.findFragmentByTag(fragmentTag);
+    if (fragment != null) {
+      fm.beginTransaction().remove(fragment).commitAllowingStateLoss();
+    }
+  }
+
+  def showDialog(): Unit = {
+    if (task != null) {
+      val fm: FragmentManager = getActivity.getFragmentManager
+      if (android.os.AsyncTask.Status.RUNNING.equals(task.getStatus) || android.os.AsyncTask.Status.PENDING.equals(task.getStatus)) {
+        val loadProgressFragment = CustomProgressDialog(eventBusHolder._1, "Loading pronunciation")
+        eventBusHolder._2.register(loadProgressFragment)
+        loadProgressFragment.show(fm, progressDialogTag)
+      } else {
+        if (TaskCompletionStatus.FAILED.equals(task.completionStatus)) {
+          showAlertDialog()
+        }
+      }
+    }
+  }
+
+  def showAlertDialog(): Unit = {
+    val fm: FragmentManager = getActivity.getFragmentManager
+    val customAlertDialog = CustomAlertDialog(eventBusHolder._1, "Failed to download pronunciation", "Do you want to retry?")
+    val transaction: FragmentTransaction = getActivity.getFragmentManager.beginTransaction
+    transaction.add(customAlertDialog, alertDialogTag)
+    transaction.commitAllowingStateLoss()
+    eventBusHolder._2.register(customAlertDialog)
+  }
+
+  //  def showAlertDialogOnLost(): Unit = {
+  //    val customAlertDialog = CustomAlertDialog(eventBusHolder._1, "Failed to download pronunciation", "Do you want to retry?")
+  //    val transaction: FragmentTransaction = getActivity.getFragmentManager.beginTransaction
+  //    transaction.add(customAlertDialog, alertDialogTag)
+  //    transaction.commit()
+  //
+  //  }
 
   @Subscribe def startTask(startTaskEvent: StartTaskEvent) {
     startTask()
@@ -106,18 +154,9 @@ class PronounceFragment extends Fragment {
 
   private def startTask() {
     task = new LoadPronunciationTask()
-    task.subscribe(PronounceFragment.this)
-    showLoadProgressFragment(task)
     task.execute()
+    showDialog()
   }
-
-  private def showLoadProgressFragment(asyncTask: LoadPronunciationTask) {
-    val fm: FragmentManager = getActivity.getFragmentManager
-    val loadProgressFragment = CustomProgressDialog(asyncTask.key, "Loading pronunciation")
-    asyncTask.subscribe(loadProgressFragment)
-    loadProgressFragment.show(fm, progressDialogTag)
-  }
-
 
   override def onSaveInstanceState(outState: Bundle): Unit = {
     //hack
@@ -128,61 +167,51 @@ class PronounceFragment extends Fragment {
       task.cancel(cancelEvent.isMayInterruptIfRunning)
       task = null
     }
-
   }
 
+  // вызывается при смене ориентации экрана перпед doDetach
+  override def onDestroyView(): Unit = {
+    super.onDestroyView()
+  }
+
+  // вызывается при смене ориентации экрана после onDestroyView
+  override def onDetach(): Unit = {
+    super.onDetach()
+  }
+
+  // это метод вызывается когда нажимаем назад
+  override def onDestroy(): Unit = {
+    super.onDestroy()
+    EventBusManager.instance.removeEventBus(eventBusHolder._1)
+    try {
+      eventBusHolder._2.unregister(PronounceFragment.this)
+    } catch {
+      case _: Exception => {}
+    }
+  }
 
   class LoadPronunciationTask extends AsyncTask[Void, Integer, Void] {
 
-    var key: String = UUID.randomUUID.toString
-    var eventBus: EventBus = new EventBus
-    var completionStatus: TaskCompletionStatus = TaskCompletionStatus.UNKNOWN
-
-    {
-      eventBus.register(this)
-      EventBusManager.instance.store(key, eventBus)
-    }
-
-    def isSuccess = TaskCompletionStatus.SUCCESS.equals(completionStatus)
-
-    def isFailed = TaskCompletionStatus.FAILED.equals(completionStatus)
-
-
-    def subscribe(subscriber: AnyRef) {
-      eventBus.register(subscriber)
-    }
+    var completionStatus: TaskCompletionStatus = TaskCompletionStatus.UNKNOWN;
 
     override def onPreExecute(): Unit = {
 
     }
 
-    override def onCancelled() {}
-
-    @Subscribe def onCancelTaskEvent(cancelEvent: CancelTaskEvent) {
-      cancel(cancelEvent.isMayInterruptIfRunning)
+    override def onCancelled(): Unit = {
+      removeIfExists(progressDialogTag)
+      removeIfExists(alertDialogTag)
     }
 
     override def onPostExecute(ignore: Void) {
-      eventBus.post(new CompleteEvent)
-      if (isFailed) {
-        createAlertDialog()
-      }
-      else {
-        eventBus.unregister(this) // -> improve it
-        EventBusManager.instance.removeEventBus(key) // -> improve it
-        Toast.makeText(getActivity, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
-        if (mediaService.exists(word)) {
-          playButton.setEnabled(true)
-        }
-      }
-    }
+      removeIfExists(progressDialogTag)
+      removeIfExists(alertDialogTag)
 
-    private def createAlertDialog() {
-      val customAlertDialog = CustomAlertDialog(key, "Failed to download pronunciation", "Do you want to retry?")
-      val bundle: Bundle = new Bundle
-      val transaction: FragmentTransaction = getActivity.getFragmentManager.beginTransaction
-      transaction.add(customAlertDialog, alertDialogTag)
-      transaction.commitAllowingStateLoss
+      if (TaskCompletionStatus.FAILED.equals(task.completionStatus)) {
+        showAlertDialog()
+      } else {
+        Toast.makeText(getActivity, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
+      }
     }
 
 
@@ -199,11 +228,9 @@ class PronounceFragment extends Fragment {
         }
       }
       null
-
     }
 
-    override protected def onProgressUpdate(progresses: util.List[Integer]): Unit = {
-    }
+    override protected def onProgressUpdate(progresses: util.List[Integer]): Unit = {}
   }
 
 }

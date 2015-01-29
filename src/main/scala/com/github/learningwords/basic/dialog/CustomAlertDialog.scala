@@ -35,9 +35,9 @@ class CustomAlertDialog extends DialogFragment {
 
   override def onCreateDialog(savedInstanceState: Bundle): Dialog = {
     eventBus = EventUtils.getEventBus(getArguments)
-    if (eventBus != null) {
-      eventBus.register(this)
-    }
+//    if (eventBus != null) {
+//      eventBus.register(this)
+//    }
     def getTitle: String = {
       if (getArguments != null)
         getArguments.getString(CustomAlertDialog.TITLE)
