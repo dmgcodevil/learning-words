@@ -21,7 +21,6 @@ class MainActivity extends Activity {
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
-    HelperFactory.setHelper(getApplicationContext)
     LanguageReader(getApplicationContext)
     val profileRepository = HelperFactory.helper().getRepository(classOf[ProfileRepository])
 
