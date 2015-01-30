@@ -8,3 +8,5 @@ android/support/multidex/MultiDexExtractor$1.class
 android/support/multidex/MultiDexExtractor.class
 android/support/multidex/ZipUtil$CentralDirectory.class
 android/support/multidex/ZipUtil.class
+com/github/learningwords/app/LearningWordsApplication.class
+com/github/learningwords/app/LearningWordsApplication$$anon$1.class

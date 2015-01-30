@@ -25,7 +25,7 @@ android {
         targetSdkVersion 21
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner "android.test.InstrumentationTestRunner"
+        testInstrumentationRunner "com.test.learningwords.runner.MultiDexTestRunner"
     }
 
     sourceSets {
@@ -58,9 +58,21 @@ dependencies {
     compile 'com.google.guava:guava:18.0'
     //compile 'com.loopj.android:android-async-http:1.4.6'
    // compile 'com.fasterxml.jackson.core:jackson-databind:2.4.2'
+    compile "com.android.support:multidex:1.0.0"
 }
 
 tasks.withType(ScalaCompile) {
     scalaCompileOptions.deprecation = false
     scalaCompileOptions.additionalParameters = ["-feature"]
+}
+
+afterEvaluate {
+    tasks.matching {
+        it.name.startsWith("dex")
+    }.each { dx ->
+        dx.additionalParameters = (dx.additionalParameters ?: []) + [
+            "--multi-dex",
+            "--main-dex-list=$rootDir/main-dex-list.txt".toString(),
+        ]
+    }
 }
