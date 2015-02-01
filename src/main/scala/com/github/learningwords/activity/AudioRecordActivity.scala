@@ -16,7 +16,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.{Menu, MenuItem, View}
 import android.widget.ImageButton
-import com.github.learningwords.{R, Word}
+import com.github.learningwords.{R, WordDto}
 import com.github.learningwords.service.MediaService
 import com.google.common.base.Throwables
 
@@ -36,7 +36,7 @@ class AudioRecordActivity extends Activity {
   private var mediaService: MediaService = null
   private var save: ImageButton = null
   private var cancel: ImageButton = null
-  private var word: Word = null
+  private var word: WordDto = null
 
   /** Microphone audio source */
   private val MIC: Int = 1
@@ -50,7 +50,7 @@ class AudioRecordActivity extends Activity {
     setContentView(R.layout.activity_audio_record)
     mediaService = MediaService.apply(getApplicationContext)
     mFileName = mediaService.getPronunciationRecordFolder + "/temp.mp3"
-    word = getIntent.getExtras.getSerializable("word").asInstanceOf[Word]
+    word = getIntent.getExtras.getSerializable("word").asInstanceOf[WordDto]
     save = findViewById(R.id.saveRecordedPronunciation).asInstanceOf[ImageButton]
     save.setEnabled(false)
     save.setOnClickListener(new View.OnClickListener() {

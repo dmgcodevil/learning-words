@@ -4,7 +4,7 @@ import android.app.{FragmentManager, Activity}
 import android.os.Bundle
 import android.view.{Menu, MenuItem}
 import android.widget.{LinearLayout, TextView}
-import com.github.learningwords.{Word, Language, R}
+import com.github.learningwords.{WordDto, Language, R}
 import com.github.learningwords.fragment.PronounceFragment
 
 class PronunciationActivity extends Activity {
@@ -23,8 +23,8 @@ class PronunciationActivity extends Activity {
 
     val fm: FragmentManager = getFragmentManager
 
-    val nativeWord = getIntent.getExtras.get("nativeWord").asInstanceOf[Word]
-    val foreignWord = getIntent.getExtras.get("foreignWord").asInstanceOf[Word]
+    val nativeWord = getIntent.getExtras.get("nativeWord").asInstanceOf[WordDto]
+    val foreignWord = getIntent.getExtras.get("foreignWord").asInstanceOf[WordDto]
 
     val nativeWordTextView = findViewById(R.id.nativeWordTextView).asInstanceOf[TextView]
     val foreignWordTextView = findViewById(R.id.addPronunciation).asInstanceOf[TextView]

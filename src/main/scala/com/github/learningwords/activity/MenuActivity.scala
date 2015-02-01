@@ -6,16 +6,19 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.widget.{EditText, Button}
+import android.widget.{Toast, EditText, Button}
+import com.github.learningwords.service.transition.YandexTranslationService
 
-import com.github.learningwords.{Word, Language, R}
+import com.github.learningwords.{WordDto, Language, R}
 
 
 class MenuActivity extends Activity {
 
 
-  private var nativeEdit: EditText = null;
-  private var foreignEdit: EditText = null;
+  private var nativeEdit: EditText = null
+  private var foreignEdit: EditText = null
+  private var translateBtn: Button = null
+  private var textToTranslate: EditText = null
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
@@ -23,11 +26,27 @@ class MenuActivity extends Activity {
     val addPronunciation = findViewById(R.id.addPronunciation).asInstanceOf[Button]
     nativeEdit = findViewById(R.id.nativeEdit).asInstanceOf[EditText]
     foreignEdit = findViewById(R.id.foreignEdit).asInstanceOf[EditText]
+    textToTranslate = findViewById(R.id.textToTranslate).asInstanceOf[EditText]
+    translateBtn = findViewById(R.id.translateBtn).asInstanceOf[Button]
+    translateBtn.setOnClickListener(new View.OnClickListener() {
+      override def onClick(v: View): Unit = {
+        val translate = YandexTranslationService
+        val fromW = new WordDto(new Language(null, "ru"), textToTranslate.getText.toString)
+        val toLang = new Language(null, "en")
+        try {
+          val translationDto = translate.translate(fromW, toLang)
+          Toast.makeText(MenuActivity.this, translationDto.text(0).toString, Toast.LENGTH_SHORT).show()
+        } catch {
+          case e: Throwable => e.printStackTrace()
+        }
+      }
+    })
+
     addPronunciation.setOnClickListener(new View.OnClickListener() {
 
       override def onClick(v: View): Unit = {
-        val nativeWord = new Word(new Language("Russian", "ru"), nativeEdit.getText.toString.trim.toLowerCase)
-        val foreignWord = new Word(new Language("English", "en"), foreignEdit.getText.toString.trim.toLowerCase)
+        val nativeWord = new WordDto(new Language("Russian", "ru"), nativeEdit.getText.toString.trim.toLowerCase)
+        val foreignWord = new WordDto(new Language("English", "en"), foreignEdit.getText.toString.trim.toLowerCase)
         val intent = new Intent(getApplicationContext, classOf[PronunciationActivity])
         intent.putExtra("nativeWord", nativeWord)
         intent.putExtra("foreignWord", foreignWord)

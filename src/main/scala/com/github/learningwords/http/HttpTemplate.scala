@@ -6,6 +6,7 @@ import java.net.URISyntaxException
 import android.os.StrictMode
 import com.github.learningwords.exception.HttpClientException
 import com.github.learningwords.http.response.BasicSuccessStatusHandler
+import com.github.learningwords.mapping.jackson.JacksonJsonMapper
 import org.apache.http.client.HttpClient
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.client.utils.URIBuilder
@@ -23,7 +24,7 @@ class HttpTemplate {
   //private JsonMapper jsonMapper = new JacksonJsonMapper();
 
   private val basicSuccessStatusHandler = new BasicSuccessStatusHandler()
-
+  private val jsonMapper = new JacksonJsonMapper()
 
   def this(httpClient: HttpClient) {
     this()
@@ -53,7 +54,7 @@ class HttpTemplate {
    */
   @throws[HttpClientException]
   def get(url: String, requestParameters: RequestParameters): HttpResponse = {
-    def throwException = (e: Throwable) => throw  HttpClientException.create("failed build url: " + url + ", parameters: " + requestParameters, e)
+    def throwException = (e: Throwable) => throw HttpClientException.create("failed build url: " + url + ", parameters: " + requestParameters, e)
     var requestUrl = url
     var httpGet: HttpGet = null
     try {
@@ -64,9 +65,9 @@ class HttpTemplate {
       val uriBuilder = addQueryParams(new URIBuilder(httpGet.getURI), requestParameters)
       httpGet.setURI(uriBuilder.build())
       val response = httpClient.execute(httpGet)
-       handleResponse(response);
+      handleResponse(response);
     } catch {
-      case io: IOException=> throwException(io)
+      case io: IOException => throwException(io)
       case ue: URISyntaxException => throwException(ue)
     }
     //finally ->  httpGet.abort(); this operation closes socket as well, don't invoke it before read data from socket
@@ -90,6 +91,10 @@ class HttpTemplate {
     }
   }
 
+  def getForObject[T](url: String, parameters: RequestParameters, responseType: Class[T]): T = {
+    val response = getForStream(url, parameters)
+    convert(response, responseType)
+  }
 
   /**
    * Sends GET request to specified url.
@@ -130,5 +135,9 @@ class HttpTemplate {
       uriBuilder.addParameter(nameValuePair.name, nameValuePair.value)
     }
     uriBuilder
+  }
+
+  private def convert[T](inputStream: InputStream, responseType: Class[T]): T = {
+    jsonMapper.readObject(inputStream, responseType);
   }
 }

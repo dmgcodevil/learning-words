@@ -39,4 +39,25 @@
         android:layout_alignRight="@+id/nativeEdit"
         android:layout_alignEnd="@+id/nativeEdit" />
 
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="translate"
+        android:id="@+id/translateBtn"
+        android:layout_below="@+id/textToTranslate"
+        android:layout_alignLeft="@+id/textToTranslate"
+        android:layout_alignStart="@+id/textToTranslate"
+        android:layout_alignRight="@+id/textToTranslate"
+        android:layout_alignEnd="@+id/textToTranslate" />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/textToTranslate"
+        android:layout_centerVertical="true"
+        android:layout_alignLeft="@+id/addPronunciation"
+        android:layout_alignStart="@+id/addPronunciation"
+        android:layout_alignRight="@+id/addPronunciation"
+        android:layout_alignEnd="@+id/addPronunciation" />
+
 </RelativeLayout>

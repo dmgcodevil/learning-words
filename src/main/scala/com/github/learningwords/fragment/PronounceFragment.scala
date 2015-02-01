@@ -19,14 +19,14 @@ import com.github.learningwords.basic.task.event._
 import com.github.learningwords.service.MediaService
 import com.github.learningwords.service.pronunciation.{PronounceService, PronounceServiceType}
 import com.github.learningwords.util.FileUtils
-import com.github.learningwords.{R, Word}
+import com.github.learningwords.{R, WordDto}
 import com.google.common.eventbus.{EventBus, Subscribe}
 
 
 class PronounceFragment extends Fragment {
 
 
-  private var word: Word = null
+  private var word: WordDto = null
 
   private var recordButton: ImageButton = null
   private var downloadButton: ImageButton = null
@@ -51,7 +51,7 @@ class PronounceFragment extends Fragment {
     eventBusHolder._2.register(PronounceFragment.this)
     mediaService = MediaService(getActivity.getApplicationContext)
     if (getArguments != null) {
-      word = getArguments.getSerializable(PronounceFragment.WORD).asInstanceOf[Word]
+      word = getArguments.getSerializable(PronounceFragment.WORD).asInstanceOf[WordDto]
       progressDialogTag = CustomProgressDialog.TAG + getArguments.getString(PronounceFragment.ID)
       alertDialogTag = CustomAlertDialog.TAG + getArguments.getString(PronounceFragment.ID)
     }
@@ -292,7 +292,7 @@ object PronounceFragment {
   val WORD = "word"
   val ID = "id"
 
-  def apply(word: Word, id: String): PronounceFragment = {
+  def apply(word: WordDto, id: String): PronounceFragment = {
     val fragment = new PronounceFragment()
     val bundle = new Bundle()
     bundle.putSerializable(WORD, word)

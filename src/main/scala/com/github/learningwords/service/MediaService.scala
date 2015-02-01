@@ -4,7 +4,7 @@ import java.io.{IOException, File, FileOutputStream, InputStream}
 
 import android.content.Context
 import android.os.Environment
-import com.github.learningwords.Word
+import com.github.learningwords.WordDto
 import com.github.learningwords.exception.StorageUnavailableException
 import com.github.learningwords.util.{CommonUtils, SDCardUtils}
 import org.apache.commons.io.IOUtils
@@ -16,7 +16,7 @@ class MediaService(val context: Context) {
 
   @throws[StorageUnavailableException]
   @throws[IOException]
-  def save(word: Word, is: InputStream): String = {
+  def save(word: WordDto, is: InputStream): String = {
     MediaService.createLangDir(word)
     val fullFileName = getFilePath(word)
     val outputStream = new FileOutputStream(new File(fullFileName))
@@ -27,13 +27,13 @@ class MediaService(val context: Context) {
   }
 
 
-  def exists(word: Word): Boolean = {
+  def exists(word: WordDto): Boolean = {
     val file = new File(getFilePath(word))
     file.exists() && !file.isDirectory
   }
 
 
-  def getFilePath(w: Word): String = {
+  def getFilePath(w: WordDto): String = {
     val appName = MediaService.appName
     val sdcard = Environment.getExternalStorageDirectory
     val lang = w.lang.shortcut
@@ -63,7 +63,7 @@ object MediaService {
     new MediaService(context)
   }
 
-  private def createLangDir(word: Word) {
+  private def createLangDir(word: WordDto) {
     val lang = word.lang.shortcut
     createFolder(rootPronunciationFolder + "/" + lang, s"failed to create folder for '$lang' pronunciations")
   }
