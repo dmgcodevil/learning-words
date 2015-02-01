@@ -1,4 +1,5 @@
 package com.github.learningwords.basic.task.event
+
 import com.google.common.eventbus.EventBus
 
 /**
@@ -6,6 +7,21 @@ import com.google.common.eventbus.EventBus
  */
 object EventBusManager {
   val instance = new EventBusManager()
+
+
+  def unregisterQuietly(obj: AnyRef, eventBus: EventBus): Boolean = {
+    if (eventBus == null) {
+      return false
+    }
+    try {
+      // eventBus.unregister method throws llegalArgumentException
+      // if the object was not previously registered or was already unregistered
+      eventBus.unregister(obj)
+      true
+    } catch {
+      case _: Exception => false
+    }
+  }
 }
 
 class EventBusManager {
@@ -25,5 +41,7 @@ class EventBusManager {
   }
 
   private var eventBusMap: java.util.Map[String, EventBus] = new java.util.WeakHashMap[String, EventBus]
+
+
 }
 

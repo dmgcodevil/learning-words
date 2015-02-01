@@ -43,9 +43,6 @@ class CustomProgressDialog extends DialogFragment {
     dialogLabel = view.findViewById(R.id.dialogLabel).asInstanceOf[TextView]
     dialogLabel.setText(getTitle)
     eventBus = EventUtils.getEventBus(getArguments)
-//    if (eventBus != null) {
-//      eventBus.register(this)
-//    }
     cancel.setOnClickListener(new View.OnClickListener {
       def onClick(v: View) {
         if (eventBus != null) {
@@ -88,7 +85,6 @@ class CustomProgressDialog extends DialogFragment {
    */
   override def onDismiss(dialog: DialogInterface) {
     super.onDismiss(dialog)
-    if (dialog != null) dialog.dismiss()
     // if this method was triggered because of changing configuration then we need to unregister
     // this dialog from event bus
     unregister()
@@ -96,28 +92,15 @@ class CustomProgressDialog extends DialogFragment {
 
   override def onCancel(dialog: DialogInterface): Unit = {
     super.onCancel(dialog)
-    if (dialog != null) dialog.cancel()
-    try {
-      if (eventBus != null) {
-        eventBus.post(new CancelTaskEvent)
-        eventBus.unregister(CustomProgressDialog.this)
-      }
-    } catch {
-      case e: Exception => println(e.getMessage)
+    if (eventBus != null) {
+      eventBus.post(new CancelTaskEvent)
+      EventBusManager.unregisterQuietly(CustomProgressDialog.this, eventBus)
     }
   }
 
   private def unregister(): Unit = {
     if (eventBus != null) {
-      try {
-        // this invocation should be enclosed in try catch because we don't know which
-        // method was invoked first either onDismiss or onCancel thus this dialog can be already
-        // unregistered. eventBus.unregister method throws llegalArgumentException
-        // if the object was not previously registered or was already unregistered
-        eventBus.unregister(CustomProgressDialog.this)
-      } catch {
-        case e: Exception => println(e.getMessage)
-      }
+      EventBusManager.unregisterQuietly(CustomProgressDialog.this, eventBus)
     }
   }
 

@@ -35,9 +35,6 @@ class CustomAlertDialog extends DialogFragment {
 
   override def onCreateDialog(savedInstanceState: Bundle): Dialog = {
     eventBus = EventUtils.getEventBus(getArguments)
-//    if (eventBus != null) {
-//      eventBus.register(this)
-//    }
     def getTitle: String = {
       if (getArguments != null)
         getArguments.getString(CustomAlertDialog.TITLE)
@@ -83,16 +80,9 @@ class CustomAlertDialog extends DialogFragment {
 
   private def unregister(): Unit = {
     if (eventBus != null) {
-      try {
-        eventBus.unregister(CustomAlertDialog.this)
-      } catch {
-        case e: Exception => println(e.getMessage)
-      }
-
+      EventBusManager.unregisterQuietly(CustomAlertDialog.this, eventBus)
     }
   }
-
-
 
 }
 

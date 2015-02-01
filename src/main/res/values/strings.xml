@@ -10,5 +10,10 @@
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="title_activity_menu">MenuActivity</string>
     <string name="title_activity_audio_record">AudioRecordActivity</string>
+    <string name="mic_record_img">microphone</string>
+    <string name="rec_voice">record voice</string>
+    <string name="play_rec">play recorded voice</string>
+    <string name="save_rec">save_record</string>
+    <string name="cancel_rec">cancel record</string>
 
 </resources>

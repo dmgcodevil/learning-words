@@ -6,9 +6,9 @@ import java.util
 import java.util.UUID
 
 import android.app._
-import android.content.Intent
+import android.content.{ActivityNotFoundException, Intent}
 import android.media.MediaPlayer
-import android.os.{Bundle, Environment, SystemClock}
+import android.os.{Bundle, SystemClock}
 import android.view.{LayoutInflater, View, ViewGroup}
 import android.widget._
 import com.github.learningwords.activity.AudioRecordActivity
@@ -18,6 +18,7 @@ import com.github.learningwords.basic.task.event.TaskCompletionStatus.TaskComple
 import com.github.learningwords.basic.task.event._
 import com.github.learningwords.service.MediaService
 import com.github.learningwords.service.pronunciation.{PronounceService, PronounceServiceType}
+import com.github.learningwords.util.FileUtils
 import com.github.learningwords.{R, Word}
 import com.google.common.eventbus.{EventBus, Subscribe}
 
@@ -34,11 +35,13 @@ class PronounceFragment extends Fragment {
   private val pronounceService = PronounceService(PronounceServiceType.Soundoftext)
   private val mp = new MediaPlayer()
   private var mediaService: MediaService = null
-  //private var fileName: String = null
   private var task: LoadPronunciationTask = null
   private var progressDialogTag = ""
   private var alertDialogTag = ""
-  val eventBusHolder = UUID.randomUUID().toString -> new EventBus()
+  private val eventBus = new EventBus()
+  private val eventBusHolder = UUID.randomUUID().toString -> eventBus
+  private val recordingResultCode = 100
+  private val fileSelectCode = 110
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
@@ -46,8 +49,7 @@ class PronounceFragment extends Fragment {
 
     EventBusManager.instance.store(eventBusHolder._1, eventBusHolder._2)
     eventBusHolder._2.register(PronounceFragment.this)
-
-    mediaService = new MediaService(getActivity.getApplicationContext)
+    mediaService = MediaService(getActivity.getApplicationContext)
     if (getArguments != null) {
       word = getArguments.getSerializable(PronounceFragment.WORD).asInstanceOf[Word]
       progressDialogTag = CustomProgressDialog.TAG + getArguments.getString(PronounceFragment.ID)
@@ -57,11 +59,9 @@ class PronounceFragment extends Fragment {
 
 
   override def onCreateView(inflater: LayoutInflater, container: ViewGroup, savedInstanceState: Bundle): View = {
-    removeIfExists(progressDialogTag)
-    removeIfExists(alertDialogTag)
-    showDialog();
+    destroyDialogs()
+    showDialog()
     val view: View = inflater.inflate(R.layout.fragment_pronounce, container, false)
-
     playButton = view.findViewById(R.id.playButton).asInstanceOf[ImageButton]
     if (mediaService.exists(word)) {
       playButton.setEnabled(true)
@@ -69,11 +69,17 @@ class PronounceFragment extends Fragment {
       playButton.setEnabled(false)
     }
     openButton = view.findViewById(R.id.openBtn).asInstanceOf[ImageButton]
+    openButton.setOnClickListener(new View.OnClickListener {
+      override def onClick(v: View): Unit = {
+        showFileChooser()
+      }
+    })
     recordButton = view.findViewById(R.id.addPronunciation).asInstanceOf[ImageButton]
     recordButton.setOnClickListener(new View.OnClickListener {
       override def onClick(v: View): Unit = {
         val intent = new Intent(getActivity.getApplicationContext, classOf[AudioRecordActivity])
-        startActivity(intent)
+        intent.putExtra("word", word)
+        startActivityForResult(intent, recordingResultCode)
       }
     })
 
@@ -99,18 +105,33 @@ class PronounceFragment extends Fragment {
     view
   }
 
-  def removeIfExists(fragmentTag: String) {
+  def removeFragment(fragmentTag: String) {
     val fm: FragmentManager = getActivity.getFragmentManager
-    val fragment = fm.findFragmentByTag(fragmentTag);
+    val fragment = fm.findFragmentByTag(fragmentTag)
     if (fragment != null) {
-      fm.beginTransaction().remove(fragment).commitAllowingStateLoss();
+      fm.beginTransaction().remove(fragment).commitAllowingStateLoss()
+    }
+  }
+
+  def removeFragment(fragmentTags: Array[String]) {
+    def isNotNull(f: AnyRef): Boolean = f != null
+    val fm: FragmentManager = getActivity.getFragmentManager
+    val fragments = fragmentTags.map(tag => fm.findFragmentByTag(tag)).filter(isNotNull)
+    if (fragments.nonEmpty) {
+      def remove(tr: FragmentTransaction): FragmentTransaction = {
+        fragments.foreach(f => tr.remove(f))
+        tr
+      }
+      def commit(tr: FragmentTransaction) = tr.commitAllowingStateLoss()
+      commit(remove(fm.beginTransaction()))
     }
   }
 
   def showDialog(): Unit = {
     if (task != null) {
       val fm: FragmentManager = getActivity.getFragmentManager
-      if (android.os.AsyncTask.Status.RUNNING.equals(task.getStatus) || android.os.AsyncTask.Status.PENDING.equals(task.getStatus)) {
+      if (android.os.AsyncTask.Status.RUNNING.equals(task.getStatus)
+        || android.os.AsyncTask.Status.PENDING.equals(task.getStatus)) {
         val loadProgressFragment = CustomProgressDialog(eventBusHolder._1, "Loading pronunciation")
         eventBusHolder._2.register(loadProgressFragment)
         loadProgressFragment.show(fm, progressDialogTag)
@@ -119,6 +140,14 @@ class PronounceFragment extends Fragment {
           showAlertDialog()
         }
       }
+    }
+  }
+
+  private def enablePlayButton(): Unit = {
+    if (mediaService.exists(word)) {
+      playButton.setEnabled(true)
+    } else {
+      playButton.setEnabled(false)
     }
   }
 
@@ -131,13 +160,19 @@ class PronounceFragment extends Fragment {
     eventBusHolder._2.register(customAlertDialog)
   }
 
-  //  def showAlertDialogOnLost(): Unit = {
-  //    val customAlertDialog = CustomAlertDialog(eventBusHolder._1, "Failed to download pronunciation", "Do you want to retry?")
-  //    val transaction: FragmentTransaction = getActivity.getFragmentManager.beginTransaction
-  //    transaction.add(customAlertDialog, alertDialogTag)
-  //    transaction.commit()
-  //
-  //  }
+  private def showFileChooser(): Unit = {
+    val intent = new Intent(Intent.ACTION_GET_CONTENT)
+    intent.setType("*/*")
+    intent.addCategory(Intent.CATEGORY_OPENABLE)
+    try {
+      startActivityForResult(
+        Intent.createChooser(intent, "Select a File to Upload"), fileSelectCode);
+    } catch {
+      case ex: ActivityNotFoundException =>
+        // Potentially direct the user to the Market with a Dialog
+        Toast.makeText(getActivity, "Please install a File Manager.", Toast.LENGTH_LONG).show()
+    }
+  }
 
   @Subscribe def startTask(startTaskEvent: StartTaskEvent) {
     startTask()
@@ -169,48 +204,64 @@ class PronounceFragment extends Fragment {
     }
   }
 
-  // вызывается при смене ориентации экрана перпед doDetach
+  override def onActivityResult(requestCode: Int, resultCode: Int, data: Intent): Unit = {
+    (requestCode, resultCode) match {
+      case (`recordingResultCode`, Activity.RESULT_OK) => {
+        Toast.makeText(getActivity, "successfully recorded", Toast.LENGTH_SHORT).show()
+        enablePlayButton()
+      }
+      case (`recordingResultCode`, Activity.RESULT_CANCELED) => {
+        enablePlayButton()
+      }
+      case (`fileSelectCode`, Activity.RESULT_OK) => {
+        val uri = data.getData
+        // Get the path
+        val path = FileUtils.getPath(getActivity, uri)
+        if (path != null) {
+          mediaService.save(word, new FileInputStream(new File(path)))
+          enablePlayButton()
+          Toast.makeText(getActivity, "successfully added", Toast.LENGTH_SHORT).show()
+        }
+      }
+    }
+  }
+
   override def onDestroyView(): Unit = {
     super.onDestroyView()
   }
 
-  // вызывается при смене ориентации экрана после onDestroyView
+  private def destroyDialogs(): Unit = {
+    //removeFragment(progressDialogTag)
+    //removeFragment(alertDialogTag)
+    removeFragment(Array(progressDialogTag, alertDialogTag))
+  }
+
   override def onDetach(): Unit = {
     super.onDetach()
   }
 
-  // это метод вызывается когда нажимаем назад
   override def onDestroy(): Unit = {
     super.onDestroy()
     EventBusManager.instance.removeEventBus(eventBusHolder._1)
-    try {
-      eventBusHolder._2.unregister(PronounceFragment.this)
-    } catch {
-      case _: Exception => {}
-    }
+    EventBusManager.unregisterQuietly(PronounceFragment.this, eventBusHolder._2)
   }
 
   class LoadPronunciationTask extends AsyncTask[Void, Integer, Void] {
+    var completionStatus: TaskCompletionStatus = TaskCompletionStatus.UNKNOWN
 
-    var completionStatus: TaskCompletionStatus = TaskCompletionStatus.UNKNOWN;
-
-    override def onPreExecute(): Unit = {
-
-    }
+    override def onPreExecute(): Unit = {}
 
     override def onCancelled(): Unit = {
-      removeIfExists(progressDialogTag)
-      removeIfExists(alertDialogTag)
+      destroyDialogs()
     }
 
     override def onPostExecute(ignore: Void) {
-      removeIfExists(progressDialogTag)
-      removeIfExists(alertDialogTag)
+      destroyDialogs()
 
       if (TaskCompletionStatus.FAILED.equals(task.completionStatus)) {
         showAlertDialog()
       } else {
-        Toast.makeText(getActivity, "saved to " + Environment.getExternalStorageDirectory + "/pronunciation/" + word.lang.shortcut, Toast.LENGTH_LONG).show()
+        Toast.makeText(getActivity, "saved to " + mediaService.getFilePath(word), Toast.LENGTH_LONG).show()
       }
     }
 
@@ -223,9 +274,9 @@ class PronounceFragment extends Fragment {
         completionStatus = TaskCompletionStatus.SUCCESS
       }
       catch {
-        case e: Exception => {
+        case e: Exception =>
+          e.printStackTrace()
           completionStatus = TaskCompletionStatus.FAILED
-        }
       }
       null
     }
