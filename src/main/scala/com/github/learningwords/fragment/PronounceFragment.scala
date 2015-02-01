@@ -223,6 +223,7 @@ class PronounceFragment extends Fragment {
           Toast.makeText(getActivity, "successfully added", Toast.LENGTH_SHORT).show()
         }
       }
+      case _ => {}
     }
   }
 
@@ -272,6 +273,7 @@ class PronounceFragment extends Fragment {
         val stream = pronounceService.getPronunciationAsStream(word.lang, word.value)
         mediaService.save(word, stream)
         completionStatus = TaskCompletionStatus.SUCCESS
+        enablePlayButton()
       }
       catch {
         case e: Exception =>
