@@ -5,7 +5,13 @@ import java.io.{File, FileInputStream, IOException}
 import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
+
 import android.media.{MediaPlayer, MediaRecorder}
+
+//import android.media.MediaRecorder.AudioSource
+//import android.media.MediaRecorder.OutputFormat
+//import android.media.MediaRecorder.AudioEncoder
+
 import android.os.Bundle
 import android.util.Log
 import android.view.{Menu, MenuItem, View}
@@ -31,6 +37,13 @@ class AudioRecordActivity extends Activity {
   private var save: ImageButton = null
   private var cancel: ImageButton = null
   private var word: Word = null
+
+  /** Microphone audio source */
+  private val MIC: Int = 1
+  /** 3GPP media file format */
+  final val THREE_GPP: Int = 1
+  /** AMR (Narrowband) audio codec */
+  final val AMR_NB: Int = 1
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
@@ -103,11 +116,13 @@ class AudioRecordActivity extends Activity {
 
   private def startRecording() {
     mRecorder = new MediaRecorder()
-    mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-    mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+    //mRecorder.setAudioSource(AudioSource.MIC)
+    mRecorder.setAudioSource(MIC)
+    // mRecorder.setOutputFormat(OutputFormat.THREE_GPP)
+    mRecorder.setOutputFormat(THREE_GPP)
     mRecorder.setOutputFile(mFileName)
-    mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-
+    //mRecorder.setAudioEncoder(AudioEncoder.AMR_NB)
+    mRecorder.setAudioEncoder(AMR_NB)
     try {
       mRecorder.prepare()
     } catch {
