@@ -22,6 +22,7 @@
         android:id="@+id/translation_translation"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
+        android:completionThreshold="1"
         />
     <Button
         android:id="@+id/translation_done"

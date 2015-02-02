@@ -60,4 +60,12 @@
         android:layout_alignRight="@+id/addPronunciation"
         android:layout_alignEnd="@+id/addPronunciation" />
 
+    <Button
+        android:id="@+id/vocabularyBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/vocabulary"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@+id/translateBtn"
+        />
 </RelativeLayout>

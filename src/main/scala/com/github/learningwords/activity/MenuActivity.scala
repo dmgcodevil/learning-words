@@ -53,6 +53,14 @@ class MenuActivity extends Activity {
         startActivity(intent)
       }
     })
+
+    val vocabularyButton = findViewById(R.id.vocabularyBtn).asInstanceOf[Button]
+    vocabularyButton.setOnClickListener(new View.OnClickListener() {
+      override def onClick(v: View) = {
+        val intent = new Intent(getApplicationContext, classOf[VocabularyActivity])
+        startActivity(intent)
+      }
+    })
   }
 
 
