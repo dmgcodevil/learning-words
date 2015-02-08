@@ -5,9 +5,11 @@ import java.io.{File, FileInputStream}
 import _root_.android.app.{Notification, PendingIntent, Service}
 import _root_.android.content.Intent
 import _root_.android.media.MediaPlayer
-import _root_.android.os.IBinder
+import _root_.android.os.{SystemClock, IBinder}
+import _root_.android.support.v4.content.LocalBroadcastManager
 import com.github.learningwords._
 import com.github.learningwords.activity.PlayerActivity
+
 
 class MediaPlayerService extends Service with MediaPlayer.OnPreparedListener
 with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
@@ -17,20 +19,22 @@ with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
   private var tracks: List[(Long, Track)] = _
   private var playList: PlaylistDto = _
   private var mediaService: MediaService = _
-  private var currentTrack: (Long, Track) = _
+  private var currentTrack: (Long, Track) = null//_
   private var pos: Int = 0
   private var first: Boolean = false
+  private var broadcaster: LocalBroadcastManager = _
 
   override def onCreate(): Unit = {
     super.onCreate()
     mediaService = MediaService(getApplicationContext)
+    broadcaster = LocalBroadcastManager.getInstance(this)
   }
 
   override def onStartCommand(intent: Intent, flags: Int, startId: Int): Int = {
     if (intent.getAction.equals(MediaPlayerService.ACTION_PLAY)) {
       // get playlist
       playList = intent.getSerializableExtra("playlist").asInstanceOf[PlaylistDto]
-
+      pos = 0
       tracks = playList.tracks.map(t => (t.id, t))
       mediaPlayer = new MediaPlayer()
       setupMediaPlayer()
@@ -116,22 +120,48 @@ with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
   override def onCompletion(mp: MediaPlayer): Unit = {
     if (first) {
       // play silence
+      makePauseBetweenWords()
+      sendCurrent()
       play(currentTrack._2.foreign)
+
       first = false
     } else {
       if (pos < tracks.size - 1) {
         pos += 1
         currentTrack = tracks(pos)
+        sendCurrent()
         first = true
+        // play silence
+        makePauseBetweenPronunciations()
         play(currentTrack._2.native)
 
+      } else {
+        currentTrack = null
       }
 
     }
+  }
+
+  private def makePauseBetweenWords() = {
+    SystemClock.sleep(playList.shortDelay) // for testing purposes
+  }
+
+  private def makePauseBetweenPronunciations() = {
+    SystemClock.sleep(playList.longDelay) // for testing purposes
+  }
+
+  private def sendCurrent() {
+    val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
+    if (currentTrack != null) {
+      intent.putExtra(MediaPlayerService.CURRENT_TRACK, currentTrack._2)
+      broadcaster.sendBroadcast(intent)
+    }
+
   }
 }
 
 
 object MediaPlayerService {
   val ACTION_PLAY = "mediaPlayerService.action.PLAY"
+  val CURRENT_TRACK = "currentTrack"
 }

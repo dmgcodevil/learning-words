@@ -25,7 +25,7 @@ class TrackAdapter(context: Context, resource: Int = R.layout.track_layout, trac
     // Now we can fill the layout with the right values
     val trackInfo = convertView.findViewById(R.id.playTrackInfo).asInstanceOf[TextView]
     val track = tracks(position)
-    val caption = (w: WordDto) => w.value + "(" + w.lang + ")"
+    val caption = (w: WordDto) => w.value + "(" + w.lang.shortcut + ")"
     trackInfo.setText(caption(track.native) + " : " + caption(track.foreign))
 
     convertView

@@ -16,16 +16,27 @@
         android:paddingBottom="40dp"
         android:gravity="center_horizontal">
 
-        <EditText
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id="@+id/nativeWordText"
+            android:textAppearance="?android:attr/textAppearanceLarge"
             android:text="empty" />
 
-        <EditText
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="-"
+            android:id="@+id/textView"
+            android:paddingLeft="15dp"
+            android:paddingRight="5dp" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id="@+id/foreignWordText"
+            android:textAppearance="?android:attr/textAppearanceLarge"
             android:text="empty"
             android:layout_marginLeft="10dp" />
     </LinearLayout>

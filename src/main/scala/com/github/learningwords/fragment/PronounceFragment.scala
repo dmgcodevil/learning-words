@@ -269,7 +269,7 @@ class PronounceFragment extends Fragment {
 
     override protected def doInBackground(params: TaskParams[Void]): Void = {
       try {
-        SystemClock.sleep(3000) // for testing purposes
+        SystemClock.sleep(1000) // for testing purposes
         val stream = pronounceService.getPronunciationAsStream(word.lang, word.value)
         mediaService.save(word, stream)
         completionStatus = TaskCompletionStatus.SUCCESS
