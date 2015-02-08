@@ -19,5 +19,9 @@
     <string name="play_rec">play recorded voice</string>
     <string name="save_rec">save_record</string>
     <string name="cancel_rec">cancel record</string>
+    <string name="title_activity_player">PlayerActivity</string>
+    <string name="playTrackBtn"><![CDATA[>]]></string>
+    <string name="prevTrackBtn"><![CDATA[<<]]></string>
+    <string name="nextTrackBtn"><![CDATA[>>]]></string>
 
 </resources>

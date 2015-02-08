@@ -19,6 +19,8 @@ class MenuActivity extends Activity {
   private var foreignEdit: EditText = null
   private var translateBtn: Button = null
   private var textToTranslate: EditText = null
+  private var foreignWordsList: EditText = null
+  private var nativeWordsList: EditText = null
 
   override def onCreate(savedInstanceState: Bundle): Unit = {
     super.onCreate(savedInstanceState)
@@ -27,6 +29,8 @@ class MenuActivity extends Activity {
     nativeEdit = findViewById(R.id.nativeEdit).asInstanceOf[EditText]
     foreignEdit = findViewById(R.id.foreignEdit).asInstanceOf[EditText]
     textToTranslate = findViewById(R.id.textToTranslate).asInstanceOf[EditText]
+    foreignWordsList = findViewById(R.id.foreignWordsList).asInstanceOf[EditText]
+    nativeWordsList = findViewById(R.id.nativeWordsList).asInstanceOf[EditText]
     translateBtn = findViewById(R.id.translateBtn).asInstanceOf[Button]
     translateBtn.setOnClickListener(new View.OnClickListener() {
       override def onClick(v: View): Unit = {
@@ -41,6 +45,17 @@ class MenuActivity extends Activity {
         }
       }
     })
+
+    val openPlayer = findViewById(R.id.openPlayer).asInstanceOf[Button]
+    openPlayer.setOnClickListener(new View.OnClickListener() {
+      override def onClick(v: View): Unit = {
+        val intent = new Intent(getApplicationContext, classOf[PlayerActivity])
+        intent.putExtra("nativeWords", nativeWordsList.getText.toString)
+        intent.putExtra("foreignWords", foreignWordsList.getText.toString)
+        startActivity(intent)
+      }
+    })
+
 
     addPronunciation.setOnClickListener(new View.OnClickListener() {
 
