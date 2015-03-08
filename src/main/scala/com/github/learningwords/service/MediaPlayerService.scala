@@ -18,6 +18,7 @@ class MediaPlayerService extends Service {
 
 
   private var tracks: List[(Long, Track)] = _
+  private var samples: List[Sample] = List()
   private var playList: PlaylistDto = _
   private var mediaService: MediaService = _
   private var player: Player = _
@@ -36,19 +37,19 @@ class MediaPlayerService extends Service {
       // get playlist
       playList = intent.getSerializableExtra("playlist").asInstanceOf[PlaylistDto]
       tracks = playList.tracks.map(t => (t.id, t))
-      var samples: List[Sample] = List()
       def createSample(t: (Long, Track)) = {
         samples = samples :+ new Sample(t._1, t._2.native.value, fileDescriptor(t._2.native).apply().get, playList.shortDelay.toInt)
-        samples = samples :+ new Sample(t._1, t._2.foreign.value, fileDescriptor(t._2.foreign).apply().get, playList.longDelay.toInt)
+        samples = samples :+ new Sample(t._1, t._2.foreign.value, fileDescriptor(t._2.foreign).apply().get, playList.longDelay.toInt, false)
       }
       tracks.foreach(createSample)
       player = new Player()
       player.setOnPlayListener(new OnPlayListener {
-        override def onPlay(sample: Sample): Unit = {
-          val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
-          intent.putExtra(MediaPlayerService.CURRENT_TRACK, sample.id)
-          intent.putExtra("last", samples.last.equals(sample))
-          broadcaster.sendBroadcast(intent)
+        override def onStart(sample: Sample): Unit = {
+          notifyActivity(sample, MediaPlayerService.EVENT_START_PLAYBACK)
+        }
+
+        override def onComplete(sample: Sample): Unit = {
+          notifyActivity(sample, MediaPlayerService.EVENT_COMPLETE_PLAYBACK)
         }
       })
       player.samples = samples
@@ -60,11 +61,23 @@ class MediaPlayerService extends Service {
     } else if (intent.getAction.equals(MediaPlayerService.ACTION_PLAY)) {
       player.play()
 
-    } else if (intent.getAction.equals(MediaPlayerService.ACTION_STOP)) {
-      player.stopPlayer()
-
     }
     Service.START_NOT_STICKY // todo need investigation
+  }
+
+  override def stopService( name:Intent):Boolean= {
+    // TODO Auto-generated method stub
+    player.stopPlayer()
+     super.stopService(name)
+  }
+
+  private def notifyActivity(sample: Sample, event: String): Unit = {
+    val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
+    intent.putExtra("eventType", event)
+    intent.putExtra("id", sample.id)
+    intent.putExtra("last", samples.last.equals(sample))
+    intent.putExtra("first", sample.first)
+    broadcaster.sendBroadcast(intent)
   }
 
   private def setupMediaPlayer() = {
@@ -118,30 +131,21 @@ class MediaPlayerService extends Service {
 
 
     def play(sample: Sample) {
-      this.synchronized {
-        mHandler
-          .obtainMessage(MediaPlayerService.MESSAGE_WHAT_PLAY, sample)
-          .sendToTarget()
-      }
-
+      mHandler
+        .obtainMessage(MediaPlayerService.MESSAGE_PLAY, sample)
+        .sendToTarget()
     }
 
     def pause(): Unit = {
-      this.synchronized {
-        //mHandler.pause()
-        mHandler
-          .obtainMessage(MediaPlayerService.MESSAGE_WHAT_PAUSE, None)
-          .sendToTarget()
-      }
+      mHandler
+        .obtainMessage(MediaPlayerService.MESSAGE_PAUSE, None)
+        .sendToTarget()
     }
 
     def play(): Unit = {
-      this.synchronized {
-        //mHandler.play()
-        mHandler
-          .obtainMessage(MediaPlayerService.MESSAGE_WHAT_CONTINUE, None)
-          .sendToTarget()
-      }
+      mHandler
+        .obtainMessage(MediaPlayerService.MESSAGE_CONTINUE, None)
+        .sendToTarget()
     }
 
     def stopPlayer(): Unit = {
@@ -150,10 +154,11 @@ class MediaPlayerService extends Service {
   }
 
   /**
-   *
+   * The handler that handles messages {@link MediaPlayerService.Sample} to play them.
    */
   class PlayHandler extends Handler with MediaPlayer.OnPreparedListener
   with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
+
     private val messages = new mutable.Stack[Message]()
     var onPlayListener: Option[OnPlayListener] = None
     private var mediaPlayer: MediaPlayer = new MediaPlayer()
@@ -162,11 +167,11 @@ class MediaPlayerService extends Service {
 
     @volatile private var suspended = false
     @volatile private var paused = false
+
     private var current: Sample = _
 
     {
       mediaPlayer.setOnCompletionListener(this)
-      // mediaPlayer.setOnPreparedListener(this)
       mediaPlayer.setOnErrorListener(this)
     }
 
@@ -183,38 +188,22 @@ class MediaPlayerService extends Service {
       }
     }
 
-
-    @deprecated
-    def play(): Unit = {
-      if (paused) {
-        paused = false
-        mediaPlayer.seekTo(length)
-        mediaPlayer.start()
-      }
-    }
-
-    @deprecated
-    def pause(): Unit = {
-      suspend()
-      paused = true
-      mediaPlayer.pause()
-      length = mediaPlayer.getCurrentPosition
-    }
-
     override def handleMessage(msg: Message) {
-      if (msg.what == MediaPlayerService.MESSAGE_WHAT_PAUSE) {
+
+      if (msg.what == MediaPlayerService.MESSAGE_PAUSE) {
         paused = true
         mediaPlayer.pause()
         length = mediaPlayer.getCurrentPosition
         return
       }
 
-      if (msg.what == MediaPlayerService.MESSAGE_WHAT_CONTINUE) {
+      if (msg.what == MediaPlayerService.MESSAGE_CONTINUE) {
         paused = false
         mediaPlayer.seekTo(length)
         mediaPlayer.start()
         return
       }
+
 
       if (suspended || paused) {
         messages.push(Message.obtain(msg))
@@ -222,20 +211,19 @@ class MediaPlayerService extends Service {
         return
       }
 
-      if (msg.what == MediaPlayerService.MESSAGE_WHAT_PLAY) {
+      if (msg.what == MediaPlayerService.MESSAGE_PLAY) {
         val sample = msg.obj.asInstanceOf[Sample]
-        if (onPlayListener.isDefined) {
-          onPlayListener.get.onPlay(sample)
-        }
+
         suspend()
         val name = sample.name
         current = sample
         mediaPlayer.setDataSource(sample.df)
         mediaPlayer.prepare()
+        if (onPlayListener.isDefined) {
+          onPlayListener.get.onStart(sample)
+        }
         mediaPlayer.start()
-
-
-        Log.i(tag, s"playing track: $name ")
+        Log.i(tag, s"start playback of the sample: $name ")
       }
     }
 
@@ -247,7 +235,10 @@ class MediaPlayerService extends Service {
     override def onCompletion(mp: MediaPlayer): Unit = {
       mp.stop()
       mp.reset()
-      Log.i(tag, "MediaPlayer Complete")
+      if (onPlayListener.isDefined) {
+        onPlayListener.get.onComplete(current)
+      }
+      Log.i(tag, "MediaPlayer has completed playback of the sample: " + current.name)
       SystemClock.sleep(current.pause)
       resume()
     }
@@ -261,12 +252,23 @@ class MediaPlayerService extends Service {
 
   }
 
-  class Sample(val id: Long, val name: String, val df: FileDescriptor, val pause: Int) {
-
-  }
+  case class Sample(id: Long, name: String, df: FileDescriptor, pause: Int, first: Boolean = true) {}
 
   trait OnPlayListener {
-    def onPlay(sample: Sample)
+
+    /**
+     * Callback to be invoked when playback of a sample has started.
+     *
+     * @param sample the sample
+     */
+    def onStart(sample: Sample)
+
+    /**
+     * Callback to be invoked when playback of a sample has completed.
+     *
+     * @param sample the sample
+     */
+    def onComplete(sample: Sample)
   }
 
 }
@@ -277,8 +279,11 @@ object MediaPlayerService {
   val ACTION_PAUSE = "mediaPlayerService.action.PAUSE"
   val ACTION_PLAY = "mediaPlayerService.action.PLAY"
   val ACTION_STOP = "mediaPlayerService.action.STOP"
-  val CURRENT_TRACK = "currentTrack"
-  val MESSAGE_WHAT_PLAY = 1
-  val MESSAGE_WHAT_PAUSE = 2
-  val MESSAGE_WHAT_CONTINUE = 3
+
+  val EVENT_START_PLAYBACK = "mediaPlayerService.event.START_PLAYBACK"
+  val EVENT_COMPLETE_PLAYBACK = "mediaPlayerService.event.COMPLETE_PLAYBACK"
+
+  val MESSAGE_PLAY = 1
+  val MESSAGE_PAUSE = 2
+  val MESSAGE_CONTINUE = 3
 }
