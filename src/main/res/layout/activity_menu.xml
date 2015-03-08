@@ -77,7 +77,8 @@
         android:layout_alignLeft="@+id/openPlayer"
         android:layout_alignStart="@+id/openPlayer"
         android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true" />
+        android:layout_alignParentEnd="true"
+        android:text="привет,мир" />
 
     <EditText
         android:layout_width="wrap_content"
@@ -87,6 +88,7 @@
         android:layout_alignLeft="@+id/nativeWordsList"
         android:layout_alignStart="@+id/nativeWordsList"
         android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true" />
+        android:layout_alignParentEnd="true"
+        android:text="hello,world" />
 
 </RelativeLayout>

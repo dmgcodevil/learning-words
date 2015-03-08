@@ -1,27 +1,28 @@
 package com.github.learningwords.service
 
-import java.io.{File, FileInputStream}
+import java.io.{FileDescriptor, File, FileInputStream}
 
 import _root_.android.app.{Notification, PendingIntent, Service}
 import _root_.android.content.Intent
 import _root_.android.media.MediaPlayer
-import _root_.android.os.{SystemClock, IBinder}
+import _root_.android.os._
 import _root_.android.support.v4.content.LocalBroadcastManager
+import _root_.android.util.Log
 import com.github.learningwords._
 import com.github.learningwords.activity.PlayerActivity
 
-
-class MediaPlayerService extends Service with MediaPlayer.OnPreparedListener
-with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
+import scala.collection.mutable
 
 
-  private var mediaPlayer: MediaPlayer = _
+class MediaPlayerService extends Service {
+
+
   private var tracks: List[(Long, Track)] = _
   private var playList: PlaylistDto = _
   private var mediaService: MediaService = _
-  private var currentTrack: (Long, Track) = null//_
-  private var pos: Int = 0
-  private var first: Boolean = false
+  private var player: Player = _
+
+
   private var broadcaster: LocalBroadcastManager = _
 
   override def onCreate(): Unit = {
@@ -34,19 +35,27 @@ with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
     if (intent.getAction.equals(MediaPlayerService.ACTION_PLAY)) {
       // get playlist
       playList = intent.getSerializableExtra("playlist").asInstanceOf[PlaylistDto]
-      pos = 0
       tracks = playList.tracks.map(t => (t.id, t))
-      mediaPlayer = new MediaPlayer()
-      setupMediaPlayer()
-      mediaPlayer.setOnPreparedListener(this)
-      mediaPlayer.setOnCompletionListener(this)
-      // take fist track to play
-      currentTrack = tracks(pos)
-      mediaPlayer.reset()
-      setDataSource(currentTrack._2)
+      var samples: List[Sample] = List()
+      def createSample(t: (Long, Track)) = {
+        samples = samples :+ new Sample(t._1,t._2.native.value,  fileDescriptor(t._2.native).apply().get, playList.shortDelay.toInt)
+        samples = samples :+ new Sample(t._1, t._2.foreign.value, fileDescriptor(t._2.foreign).apply().get, playList.longDelay.toInt)
+      }
+      tracks.foreach(createSample)
+      player = new Player("player")
+      player.onPlayListener = new OnPlayListener {
+        override def onPlay(sample: Sample): Unit = {
+          val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
 
-      first = true
-      mediaPlayer.prepareAsync() // prepare async to not block main thread
+          intent.putExtra(MediaPlayerService.CURRENT_TRACK, sample.id)
+          broadcaster.sendBroadcast(intent)
+        }
+      }
+      player.samples = samples
+      player.start()
+      player.getLooper
+
+
     }
     Service.START_NOT_STICKY // todo need investigation
   }
@@ -57,40 +66,6 @@ with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
 
   override def onBind(intent: Intent): IBinder = null
 
-  override def onPrepared(mp: MediaPlayer): Unit = {
-    // take fist track to play
-    mediaPlayer.start()
-  }
-
-  private def setDataSource(track: Track): Unit = {
-    val fd = fileDescriptor(track.native).apply()
-    if (fd.isEmpty) {
-      throw new RuntimeException("failed to get file descriptor")
-    }
-    mediaPlayer.setDataSource(fd.get)
-    first = true
-  }
-
-  //  private def play(): Unit = {
-  //    mediaPlayer.start()
-  //  }
-
-  private def play(word: WordDto): Unit = {
-    mediaPlayer.reset()
-    val fd = fileDescriptor(word).apply()
-    if (fd.isEmpty) {
-      throw new RuntimeException("failed to get file descriptor")
-    }
-    mediaPlayer.setDataSource(fd.get)
-    mediaPlayer.prepareAsync()
-  }
-
-  override def onError(mp: MediaPlayer, what: Int, extra: Int): Boolean = {
-    // todo
-    // ... react appropriately ...
-    // The MediaPlayer has moved to the Error state, must be reset!
-    false
-  }
 
   private def showNotification(songName: String) = {
 
@@ -117,47 +92,111 @@ with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
     }
   }
 
-  override def onCompletion(mp: MediaPlayer): Unit = {
-    if (first) {
-      // play silence
-      makePauseBetweenWords()
-      sendCurrent()
-      play(currentTrack._2.foreign)
 
-      first = false
-    } else {
-      if (pos < tracks.size - 1) {
-        pos += 1
-        currentTrack = tracks(pos)
-        sendCurrent()
-        first = true
-        // play silence
-        makePauseBetweenPronunciations()
-        play(currentTrack._2.native)
+  class Player(val name: String) extends HandlerThread(name) {
+    var mHandler: MyHandler = _
+    var onPlayListener: OnPlayListener = _
+    private var mediaPlayer: MediaPlayer = _
+    var samples: List[Sample]  = List()
 
-      } else {
-        currentTrack = null
+    override def onLooperPrepared(): Unit = {
+      mHandler = new MyHandler()
+      mHandler.onPlayListener = onPlayListener
+      samples.foreach(player.play)
+    }
+
+    def play(sample: Sample) {
+
+      mHandler
+        .obtainMessage(1, sample)
+        .sendToTarget()
+    }
+  }
+
+  class MyHandler extends Handler with MediaPlayer.OnPreparedListener
+  with MediaPlayer.OnErrorListener with MediaPlayer.OnCompletionListener {
+    private val messages = new mutable.Stack[Message]()
+    var onPlayListener: OnPlayListener = _
+    private var mediaPlayer: MediaPlayer = new MediaPlayer()
+
+    @volatile private var paused = false
+    private var current: Sample = _
+
+    {
+      mediaPlayer.setOnCompletionListener(this)
+      mediaPlayer.setOnPreparedListener(this)
+      mediaPlayer.setOnErrorListener(this)
+    }
+
+    def pause() {
+      paused = true
+      Log.i("MyHandler", "pause")
+    }
+
+    def resume() {
+      Log.i("MyHandler", "resume")
+      paused = false
+      while (messages.nonEmpty) {
+        sendMessageAtFrontOfQueue(messages.pop())
+      }
+    }
+
+    override def handleMessage(msg: Message) {
+      if (paused) {
+        messages.push(Message.obtain(msg))
+        Log.i("MyHandler", "push message to stack")
+        return
       }
 
+      if (msg.what == 1) {
+
+        val sample = msg.obj.asInstanceOf[Sample]
+        if (onPlayListener != null) {
+          onPlayListener.onPlay(sample)
+        }
+        pause()
+        val name = sample.name
+        current = sample
+        mediaPlayer.setDataSource(sample.df)
+        mediaPlayer.prepareAsync()
+
+
+        Log.i("MyHandler", s"play track: $name ")
+      }
     }
-  }
 
-  private def makePauseBetweenWords() = {
-    SystemClock.sleep(playList.shortDelay) // for testing purposes
-  }
+    override
+    def onPrepared(mp: MediaPlayer): Unit = {
+      mp.start()
+      Log.i("MyHandler", " MediaPlayer start")
+    }
 
-  private def makePauseBetweenPronunciations() = {
-    SystemClock.sleep(playList.longDelay) // for testing purposes
-  }
+    override
+    def onCompletion(mp: MediaPlayer): Unit = {
+      mp.stop()
+      mp.reset()
+      Log.i("MyHandler", " MediaPlayer Complete")
+      SystemClock.sleep(current.pause)
+      resume()
+    }
 
-  private def sendCurrent() {
-    val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
-    if (currentTrack != null) {
-      intent.putExtra(MediaPlayerService.CURRENT_TRACK, currentTrack._2)
-      broadcaster.sendBroadcast(intent)
+    override def onError(mp: MediaPlayer, what: Int, extra: Int): Boolean = {
+      // todo
+      // ... react appropriately ...
+      // The MediaPlayer has moved to the Error state, must be reset!
+      false
     }
 
   }
+
+  class Sample(val id: Long,val name:String, val df: FileDescriptor, val pause: Int) {
+
+  }
+
+  trait OnPlayListener {
+    def onPlay(sample: Sample)
+  }
+
 }
 
 

@@ -53,7 +53,7 @@ class PlayerActivity extends Activity {
     trackList = findViewById(R.id.trackList).asInstanceOf[ListView]
     val adapter = new TrackAdapter(this, tracks)
     trackList.setAdapter(adapter)
-    def startMediaService(): Unit = {
+    def startMediaService() {
       val intent = new Intent(this, classOf[MediaPlayerService])
       intent.setAction(MediaPlayerService.ACTION_PLAY)
       intent.putExtra("playlist", playList)
@@ -63,7 +63,8 @@ class PlayerActivity extends Activity {
 
     receiver = new BroadcastReceiver() {
       override def onReceive(context: Context, intent: Intent) = {
-        val track = intent.getSerializableExtra(MediaPlayerService.CURRENT_TRACK).asInstanceOf[Track]
+        val id = intent.getSerializableExtra(MediaPlayerService.CURRENT_TRACK).asInstanceOf[Long]
+        val track = playList.tracks.find(t=>t.id==id).get
         nativeWordText.setText(track.native.value)
         foreignWordText.setText(track.foreign.value)
         trackList.setSelection(playList.tracks.indexWhere(t => track.id.equals(t.id)))
@@ -88,7 +89,7 @@ class PlayerActivity extends Activity {
     val natives = native.split(",")
     val foreigns = foreign.split(",")
     for (i <- 0 until natives.length) {
-      tracks = tracks :+ new Track(0L, new WordDto(ruLang, natives(i).trim), new WordDto(enLang, foreigns(i).trim))
+      tracks = tracks :+ new Track(i.toLong, new WordDto(ruLang, natives(i).trim), new WordDto(enLang, foreigns(i).trim))
     }
     playList = new PlaylistDto(tracks)
     playList.longDelay = 230L
