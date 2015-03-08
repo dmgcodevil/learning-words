@@ -78,7 +78,7 @@
         android:layout_alignStart="@+id/openPlayer"
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
-        android:text="привет,мир" />
+        android:text="привет,мир,скала,андройд" />
 
     <EditText
         android:layout_width="wrap_content"
@@ -89,6 +89,6 @@
         android:layout_alignStart="@+id/nativeWordsList"
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
-        android:text="hello,world" />
+        android:text="hello,world,scala,android" />
 
 </RelativeLayout>

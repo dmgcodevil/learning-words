@@ -5,11 +5,12 @@ import java.nio.charset.Charset
 
 import _root_.android.app.Activity
 import _root_.android.content.{IntentFilter, BroadcastReceiver, Context, Intent}
+import _root_.android.graphics.BitmapFactory
 import _root_.android.os.Bundle
 import _root_.android.support.v4.content.LocalBroadcastManager
 import _root_.android.view.Menu
 import _root_.android.view.MenuItem
-import _root_.android.widget.{TextView, ListView, Button, EditText}
+import _root_.android.widget._
 import com.github.learningwords.basic.api.Buttons
 import com.github.learningwords.service.MediaPlayerService
 import com.github.learningwords.view.adapter.TrackAdapter
@@ -25,9 +26,13 @@ class PlayerActivity extends Activity {
   private var playTrackBtn: Button = _
   private var nextTrackBtn: Button = _
   private var trackList: ListView = _
+  private var pSeekBar: SeekBar = _
   private val ruLang = new Language("russian", "ru")
   private val enLang = new Language("english", "en")
   private var receiver: BroadcastReceiver = _
+  private var play = false
+  private var paused = false
+  private var currentTrack:Track = _
 
   // todo mock
   var tracks = List[Track]()
@@ -51,28 +56,81 @@ class PlayerActivity extends Activity {
     playTrackBtn = findViewById(R.id.playTrackBtn).asInstanceOf[Button]
     nextTrackBtn = findViewById(R.id.nextTrackBtn).asInstanceOf[Button]
     trackList = findViewById(R.id.trackList).asInstanceOf[ListView]
+    pSeekBar = findViewById(R.id.pSeekBar).asInstanceOf[SeekBar]
+    pSeekBar.setMax(playList.tracks.size)
+
     val adapter = new TrackAdapter(this, tracks)
     trackList.setAdapter(adapter)
     def startMediaService() {
-      val intent = new Intent(this, classOf[MediaPlayerService])
-      intent.setAction(MediaPlayerService.ACTION_PLAY)
-      intent.putExtra("playlist", playList)
-      startService(intent)
+      if (!play) {
+        val intent = new Intent(this, classOf[MediaPlayerService])
+        intent.setAction(MediaPlayerService.ACTION_START)
+        intent.putExtra("playlist", playList)
+        startService(intent)
+        play = true
+        playTrackBtn.setText("||")
+        return
+      }
+      if (!paused) {
+        paused = true
+        playTrackBtn.setText(">")
+        val intent = new Intent(this, classOf[MediaPlayerService])
+        intent.setAction(MediaPlayerService.ACTION_PAUSE)
+        startService(intent)
+        return
+      }
+      if (paused) {
+        playTrackBtn.setText("||")
+        paused = false
+        val intent = new Intent(this, classOf[MediaPlayerService])
+        intent.setAction(MediaPlayerService.ACTION_PLAY)
+        startService(intent)
+        return
+      }
+
+
     }
     Buttons.setOnClick(playTrackBtn, startMediaService)
-
+    Buttons.setOnClick(nextTrackBtn, nextTrack)
     receiver = new BroadcastReceiver() {
       override def onReceive(context: Context, intent: Intent) = {
         val id = intent.getSerializableExtra(MediaPlayerService.CURRENT_TRACK).asInstanceOf[Long]
-        val track = playList.tracks.find(t=>t.id==id).get
+
+        val last = intent.getSerializableExtra("last").asInstanceOf[Boolean]
+        val track = playList.tracks.find(t => t.id == id).get
+        currentTrack = track
         nativeWordText.setText(track.native.value)
         foreignWordText.setText(track.foreign.value)
         trackList.setSelection(playList.tracks.indexWhere(t => track.id.equals(t.id)))
-        // do something here.
+        if (last) {
+          play = false
+          playTrackBtn.setText(">")
+          pSeekBar.setProgress(0)
+          val stopService = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+          stopService.setAction(MediaPlayerService.ACTION_STOP)
+          startService(stopService)
+        } else {
+          pSeekBar.setProgress(playList.tracks.indexOf(track) + 1)
+        }
+
       }
     }
   }
 
+  private def nextTrack(): Unit = {
+   val index =  playList.tracks.indexOf(currentTrack)+1
+
+   val newPlaylist = new PlaylistDto( playList.tracks.slice(index, playList.tracks.size ))
+    newPlaylist.longDelay = 230L
+    newPlaylist.shortDelay = 100L
+    val stopService = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+    stopService.setAction(MediaPlayerService.ACTION_STOP)
+    startService(stopService)
+    val intent = new Intent(this, classOf[MediaPlayerService])
+    intent.setAction(MediaPlayerService.ACTION_START)
+    intent.putExtra("playlist", newPlaylist)
+    startService(intent)
+  }
 
   override def onStart(): Unit = {
     super.onStart()
