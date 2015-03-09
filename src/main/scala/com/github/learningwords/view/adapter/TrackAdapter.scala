@@ -7,7 +7,7 @@ import com.github.learningwords.{WordDto, Track, R}
 import scala.collection.JavaConverters._
 
 
-class TrackAdapter(context: Context, resource: Int = R.layout.track_layout, tracks: List[Track])
+class TrackAdapter(context: Context, resource: Int = R.id.trackList, tracks: List[Track])
   extends ArrayAdapter[Track](context, resource, tracks.asJava) {
 
   def this(context: Context, tracks: List[Track]) {

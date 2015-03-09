@@ -105,7 +105,7 @@ class PlayerActivity extends Activity {
           nativeWordText.setText(currentTrack.native.value)
           foreignWordText.setText(currentTrack.foreign.value)
 
-          trackList.setItemChecked(playList.tracks.indexWhere(t => currentTrack.id.equals(t.id)), true)
+          trackList.setSelection(playList.tracks.indexWhere(t => currentTrack.id.equals(t.id)))
         }
         if (!first && MediaPlayerService.EVENT_COMPLETE_PLAYBACK.equals(eventType)) {
           pSeekBar.setProgress(playList.tracks.indexOf(currentTrack) + 1)
@@ -122,18 +122,15 @@ class PlayerActivity extends Activity {
   }
 
   private def nextTrack(): Unit = {
-    val service = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
-    PlayerActivity.this.stopService(service)
+    val index = playList.tracks.indexOf(currentTrack) + 1
+    val newPlaylist = new PlaylistDto(playList.tracks.slice(index, playList.tracks.size))
+    newPlaylist.longDelay = 230L
+    newPlaylist.shortDelay = 100L
 
-//    val index = playList.tracks.indexOf(currentTrack) + 1
-//    val newPlaylist = new PlaylistDto(playList.tracks.slice(index, playList.tracks.size))
-//    newPlaylist.longDelay = 230L
-//    newPlaylist.shortDelay = 100L
-//
-//    val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
-//    intent.setAction(MediaPlayerService.ACTION_START)
-//    intent.putExtra("playlist", newPlaylist)
-//    startService(intent)
+    val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+    intent.setAction(MediaPlayerService.ACTION_START)
+    intent.putExtra("playlist", newPlaylist)
+    startService(intent)
   }
 
   override def onStart(): Unit = {

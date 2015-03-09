@@ -18,7 +18,7 @@ class MediaPlayerService extends Service {
 
 
   private var tracks: List[(Long, Track)] = _
-  private var samples: List[Sample] = List()
+  private var samples: List[Sample] = _
   private var playList: PlaylistDto = _
   private var mediaService: MediaService = _
   private var player: Player = _
@@ -37,11 +37,25 @@ class MediaPlayerService extends Service {
       // get playlist
       playList = intent.getSerializableExtra("playlist").asInstanceOf[PlaylistDto]
       tracks = playList.tracks.map(t => (t.id, t))
+      samples = List()
       def createSample(t: (Long, Track)) = {
         samples = samples :+ new Sample(t._1, t._2.native.value, fileDescriptor(t._2.native).apply().get, playList.shortDelay.toInt)
         samples = samples :+ new Sample(t._1, t._2.foreign.value, fileDescriptor(t._2.foreign).apply().get, playList.longDelay.toInt, false)
       }
       tracks.foreach(createSample)
+      play()
+
+    } else if (intent.getAction.equals(MediaPlayerService.ACTION_PAUSE)) {
+      player.pause()
+    } else if (intent.getAction.equals(MediaPlayerService.ACTION_PLAY)) {
+      player.play()
+
+    }
+    Service.START_NOT_STICKY // todo need investigation
+  }
+
+  private def play(): Unit = {
+    if (player == null) {
       player = new Player()
       player.setOnPlayListener(new OnPlayListener {
         override def onStart(sample: Sample): Unit = {
@@ -55,21 +69,18 @@ class MediaPlayerService extends Service {
       player.samples = samples
       player.start()
       player.getLooper
-
-    } else if (intent.getAction.equals(MediaPlayerService.ACTION_PAUSE)) {
-      player.pause()
-    } else if (intent.getAction.equals(MediaPlayerService.ACTION_PLAY)) {
-      player.play()
-
+    } else {
+      player.stopPlayer()
+      player.play(samples)
     }
-    Service.START_NOT_STICKY // todo need investigation
   }
 
-  override def stopService( name:Intent):Boolean= {
-    // TODO Auto-generated method stub
-    player.stopPlayer()
-     super.stopService(name)
-  }
+  //  override def stopService(name: Intent): Boolean = {
+  //    // TODO Auto-generated method stub
+  //    player.stopPlayer()
+  //    player.quit()
+  //    super.stopService(name)
+  //  }
 
   private def notifyActivity(sample: Sample, event: String): Unit = {
     val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
@@ -126,9 +137,13 @@ class MediaPlayerService extends Service {
     override def onLooperPrepared(): Unit = {
       mHandler = new PlayHandler()
       mHandler.onPlayListener = onPlayListener
-      samples.foreach(it => player.play(it))
+      samples.foreach(play)
     }
 
+    def play(pSamples: List[Sample]) {
+      samples = pSamples
+      samples.foreach(play)
+    }
 
     def play(sample: Sample) {
       mHandler
@@ -149,7 +164,11 @@ class MediaPlayerService extends Service {
     }
 
     def stopPlayer(): Unit = {
-      quit()
+      mHandler
+        .obtainMessage(MediaPlayerService.MESSAGE_STOP, None)
+        .sendToTarget()
+      mHandler = new PlayHandler()
+      mHandler.onPlayListener = onPlayListener
     }
   }
 
@@ -189,6 +208,14 @@ class MediaPlayerService extends Service {
     }
 
     override def handleMessage(msg: Message) {
+      if (msg.what == MediaPlayerService.MESSAGE_STOP) {
+        removeMessages(MediaPlayerService.MESSAGE_PLAY)
+        suspended = false
+        paused = false
+        mediaPlayer.stop()
+        mediaPlayer.reset()
+        return
+      }
 
       if (msg.what == MediaPlayerService.MESSAGE_PAUSE) {
         paused = true
@@ -286,4 +313,5 @@ object MediaPlayerService {
   val MESSAGE_PLAY = 1
   val MESSAGE_PAUSE = 2
   val MESSAGE_CONTINUE = 3
+  val MESSAGE_STOP = 4
 }
