@@ -11,6 +11,7 @@ class LearningWordsApplication extends Application {
     val context = this
     new Runnable() {
       override def run = {
+        // TODO: call release somewhere
         HelperFactory.setHelper(context)
       }
     }.run

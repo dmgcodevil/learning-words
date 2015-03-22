@@ -60,7 +60,6 @@ class MainActivity extends Activity {
   }
 
   override def onDestroy(): Unit = {
-    HelperFactory.releaseHelper()
     super.onDestroy()
   }
 }
