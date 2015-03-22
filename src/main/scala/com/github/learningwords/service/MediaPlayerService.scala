@@ -17,9 +17,9 @@ import scala.collection.mutable
 class MediaPlayerService extends Service {
 
 
-  private var tracks: List[(Long, Track)] = _
-  private var samples: List[Sample] = _
-  private var playList: PlaylistDto = _
+  private var tracks: Seq[TrackDto] = _
+  private var samples: Seq[Sample] = _
+  private var playbackConfig: PlaybackConfig = _
   private var mediaService: MediaService = _
   private var player: Player = _
 
@@ -35,14 +35,17 @@ class MediaPlayerService extends Service {
   override def onStartCommand(intent: Intent, flags: Int, startId: Int): Int = {
     if (intent.getAction.equals(MediaPlayerService.ACTION_START)) {
       // get playlist
-      playList = intent.getSerializableExtra("playlist").asInstanceOf[PlaylistDto]
-      tracks = playList.tracks.map(t => (t.id, t))
+      tracks = intent.getSerializableExtra(MediaPlayerService.TRACKS).asInstanceOf[Seq[TrackDto]]
+      playbackConfig = intent.getSerializableExtra(MediaPlayerService.PLAYBACK_CONFIG).asInstanceOf[PlaybackConfig]
       samples = List()
-      def createSample(t: (Long, Track)) = {
-        samples = samples :+ new Sample(t._1, t._2.native.value, fileDescriptor(t._2.native).apply().get, playList.shortDelay.toInt)
-        samples = samples :+ new Sample(t._1, t._2.foreign.value, fileDescriptor(t._2.foreign).apply().get, playList.longDelay.toInt, false)
-      }
-      tracks.foreach(createSample)
+      def createSample = (trackId: Long, word: WordDto, delay: Int, first: Boolean)
+      => new Sample(trackId, word.value, fileDescriptor(word).apply().get, delay, first)
+
+      def createSamples = (t: TrackDto) =>
+        List(createSample(t.id, t.native, playbackConfig.shortDelay.toInt, true),
+          createSample(t.id, t.foreign, playbackConfig.longDelay.toInt, false))
+
+     samples = tracks.flatMap(it => createSamples(it))
       play()
 
     } else if (intent.getAction.equals(MediaPlayerService.ACTION_PAUSE)) {
@@ -51,7 +54,7 @@ class MediaPlayerService extends Service {
       player.play()
 
     }
-    Service.START_NOT_STICKY // todo need investigation
+    Service.START_NOT_STICKY
   }
 
   private def play(): Unit = {
@@ -59,11 +62,20 @@ class MediaPlayerService extends Service {
       player = new Player()
       player.setOnPlayListener(new OnPlayListener {
         override def onStart(sample: Sample): Unit = {
-          notifyActivity(sample, MediaPlayerService.EVENT_START_PLAYBACK)
+          if(sample.first){
+            val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
+            intent.putExtra(MediaPlayerService.EVENT, MediaPlayerService.EVENT_START_TRACK_PLAYBACK)
+            intent.putExtra("id", sample.id)
+            broadcaster.sendBroadcast(intent)
+          }
         }
 
         override def onComplete(sample: Sample): Unit = {
-          notifyActivity(sample, MediaPlayerService.EVENT_COMPLETE_PLAYBACK)
+          if(samples.last.equals(sample)){
+            val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
+            intent.putExtra(MediaPlayerService.EVENT, MediaPlayerService.EVENT_PLAYBACK_COMPLETED)
+            broadcaster.sendBroadcast(intent)
+          }
         }
       })
       player.samples = samples
@@ -82,14 +94,13 @@ class MediaPlayerService extends Service {
   //    super.stopService(name)
   //  }
 
-  private def notifyActivity(sample: Sample, event: String): Unit = {
-    val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
-    intent.putExtra("eventType", event)
-    intent.putExtra("id", sample.id)
-    intent.putExtra("last", samples.last.equals(sample))
-    intent.putExtra("first", sample.first)
-    broadcaster.sendBroadcast(intent)
-  }
+//  private def notifyActivity(sample: Sample, event: String): Unit = {
+//    val intent = new Intent(classOf[MediaPlayerService].getCanonicalName)
+//    intent.putExtra("eventType", event)
+//    intent.putExtra("id", sample.id)
+//    intent.putExtra("last", samples.last.equals(sample))
+//    broadcaster.sendBroadcast(intent)
+//  }
 
   private def setupMediaPlayer() = {
     // mediaPlayer.setWakeMode(getApplicationContext, PowerManager.PARTIAL_WAKE_LOCK)
@@ -128,7 +139,7 @@ class MediaPlayerService extends Service {
     var mHandler: PlayHandler = _
     var onPlayListener: Option[OnPlayListener] = None
     private var mediaPlayer: MediaPlayer = _
-    var samples: List[Sample] = List()
+    var samples: Seq[Sample] = List()
 
     def setOnPlayListener(listener: OnPlayListener) = {
       onPlayListener = Some(listener)
@@ -140,7 +151,7 @@ class MediaPlayerService extends Service {
       samples.foreach(play)
     }
 
-    def play(pSamples: List[Sample]) {
+    def play(pSamples: Seq[Sample]) {
       samples = pSamples
       samples.foreach(play)
     }
@@ -302,13 +313,18 @@ class MediaPlayerService extends Service {
 
 
 object MediaPlayerService {
+
+  val TRACKS = "tracks"
+  val PLAYBACK_CONFIG = "playbackConfig"
+  val EVENT = "event"
+
   val ACTION_START = "mediaPlayerService.action.START"
   val ACTION_PAUSE = "mediaPlayerService.action.PAUSE"
   val ACTION_PLAY = "mediaPlayerService.action.PLAY"
   val ACTION_STOP = "mediaPlayerService.action.STOP"
 
-  val EVENT_START_PLAYBACK = "mediaPlayerService.event.START_PLAYBACK"
-  val EVENT_COMPLETE_PLAYBACK = "mediaPlayerService.event.COMPLETE_PLAYBACK"
+  val EVENT_START_TRACK_PLAYBACK = "mediaPlayerService.event.START_TRACK_PLAYBACK"
+  val EVENT_PLAYBACK_COMPLETED = "mediaPlayerService.event.PLAYBACK_COMPLETED"
 
   val MESSAGE_PLAY = 1
   val MESSAGE_PAUSE = 2

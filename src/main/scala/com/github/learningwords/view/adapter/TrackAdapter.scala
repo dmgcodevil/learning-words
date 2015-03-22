@@ -3,14 +3,14 @@ package com.github.learningwords.view.adapter
 import android.content.Context
 import android.view.{LayoutInflater, View, ViewGroup}
 import android.widget.{TextView, ArrayAdapter}
-import com.github.learningwords.{WordDto, Track, R}
+import com.github.learningwords.{WordDto, TrackDto, R}
 import scala.collection.JavaConverters._
 
 
-class TrackAdapter(context: Context, resource: Int = R.id.trackList, tracks: List[Track])
-  extends ArrayAdapter[Track](context, resource, tracks.asJava) {
+class TrackAdapter(context: Context, resource: Int = R.id.trackList, tracks: List[TrackDto])
+  extends ArrayAdapter[TrackDto](context, resource, tracks.asJava) {
 
-  def this(context: Context, tracks: List[Track]) {
+  def this(context: Context, tracks: List[TrackDto]) {
     this(context, R.layout.track_layout, tracks)
   }
 

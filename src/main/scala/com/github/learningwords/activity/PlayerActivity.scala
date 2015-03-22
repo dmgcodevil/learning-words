@@ -1,5 +1,6 @@
 package com.github.learningwords.activity
 
+import java.io.Serializable
 import java.nio.CharBuffer
 import java.nio.charset.Charset
 
@@ -19,7 +20,7 @@ import com.github.learningwords.view.adapter.TrackAdapter
 
 import com.github.learningwords._
 
-class PlayerActivity extends Activity {
+class PlayerActivity extends Activity with PlaybackListener {
 
   private var nativeWordText: TextView = _
   private var foreignWordText: TextView = _
@@ -31,14 +32,18 @@ class PlayerActivity extends Activity {
   private val ruLang = new Language("russian", "ru")
   private val enLang = new Language("english", "en")
   private var receiver: BroadcastReceiver = _
-  private var play = false
-  private var paused = false
-  private var currentTrack: Track = _
+  private var currentTrack: TrackDto = _
+
+  private var currentState: PlaybackState = StateStop
+
+  def playOperation = currentState.play
+
 
   // todo mock
-  var tracks = List[Track]()
+  var tracks = List[TrackDto]()
 
-  var playList: PlaylistDto = _
+  var playList: Playlist = _
+  var playbackConf: PlaybackConfig = _
 
   private def encode(source: String): String = {
     new String(source.getBytes, Charset.forName("UTF-16"))
@@ -58,37 +63,38 @@ class PlayerActivity extends Activity {
     nextTrackBtn = findViewById(R.id.nextTrackBtn).asInstanceOf[Button]
     trackList = findViewById(R.id.trackList).asInstanceOf[ListView]
     pSeekBar = findViewById(R.id.pSeekBar).asInstanceOf[SeekBar]
-    pSeekBar.setMax(playList.tracks.size)
+    pSeekBar.setMax(playList.size)
     trackList.setChoiceMode(1); // ListView.CHOICE_MODE_SINGLE
 
     val adapter = new TrackAdapter(this, tracks)
     trackList.setAdapter(adapter)
     def startMediaService() {
-      if (!play) {
-        val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
-        intent.setAction(MediaPlayerService.ACTION_START)
-        intent.putExtra("playlist", playList)
-        startService(intent)
-        play = true
-        playTrackBtn.setText("||")
-        return
-      }
-      if (!paused) {
-        paused = true
-        playTrackBtn.setText(">")
-        val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
-        intent.setAction(MediaPlayerService.ACTION_PAUSE)
-        startService(intent)
-        return
-      }
-      if (paused) {
-        playTrackBtn.setText("||")
-        paused = false
-        val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
-        intent.setAction(MediaPlayerService.ACTION_PLAY)
-        startService(intent)
-        return
-      }
+      playOperation
+      //      if (!play) {
+      //        val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+      //        intent.setAction(MediaPlayerService.ACTION_START)
+      //        intent.putExtra("playlist", playList.slice.asInstanceOf[Serializable])
+      //        startService(intent)
+      //        play = true
+      //        playTrackBtn.setText("||")
+      //        return
+      //      }
+      //      if (!paused) {
+      //        paused = true
+      //        playTrackBtn.setText(">")
+      //        val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+      //        intent.setAction(MediaPlayerService.ACTION_PAUSE)
+      //        startService(intent)
+      //        return
+      //      }
+      //      if (paused) {
+      //        playTrackBtn.setText("||")
+      //        paused = false
+      //        val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+      //        intent.setAction(MediaPlayerService.ACTION_PLAY)
+      //        startService(intent)
+      //        return
+      //      }
 
 
     }
@@ -96,41 +102,32 @@ class PlayerActivity extends Activity {
     Buttons.setOnClick(nextTrackBtn, nextTrack)
     receiver = new BroadcastReceiver() {
       override def onReceive(context: Context, intent: Intent) = {
-        val eventType = intent.getSerializableExtra("eventType").asInstanceOf[String]
-        val id = intent.getSerializableExtra("id").asInstanceOf[Long]
-        val last = intent.getSerializableExtra("last").asInstanceOf[Boolean]
-        val first = intent.getSerializableExtra("first").asInstanceOf[Boolean]
-        currentTrack = playList.tracks.find(t => t.id == id).get
-        if (first && MediaPlayerService.EVENT_START_PLAYBACK.equals(eventType)) {
-          nativeWordText.setText(currentTrack.native.value)
-          foreignWordText.setText(currentTrack.foreign.value)
+        val eventType = intent.getSerializableExtra(MediaPlayerService.EVENT).asInstanceOf[String]
 
-          trackList.setSelection(playList.tracks.indexWhere(t => currentTrack.id.equals(t.id)))
+        // val last = intent.getSerializableExtra("last").asInstanceOf[Boolean]
+        // val first = intent.getSerializableExtra("first").asInstanceOf[Boolean]
+        //currentTrack = playList.tracks.find(t => t.id == id).get
+        if (MediaPlayerService.EVENT_START_TRACK_PLAYBACK.equals(eventType)) {
+          val id = intent.getSerializableExtra("id").asInstanceOf[Long]
+          playList.next
         }
-        if (!first && MediaPlayerService.EVENT_COMPLETE_PLAYBACK.equals(eventType)) {
-          pSeekBar.setProgress(playList.tracks.indexOf(currentTrack) + 1)
-          if (last) {
-            play = false
-            playTrackBtn.setText(">")
-            pSeekBar.setProgress(0)
-            val service = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
-            stopService(service)
-          }
+        if (MediaPlayerService.EVENT_PLAYBACK_COMPLETED.equals(eventType)) {
+          playList.reset()
         }
       }
     }
   }
 
   private def nextTrack(): Unit = {
-    val index = playList.tracks.indexOf(currentTrack) + 1
-    val newPlaylist = new PlaylistDto(playList.tracks.slice(index, playList.tracks.size))
-    newPlaylist.longDelay = 230L
-    newPlaylist.shortDelay = 100L
-
-    val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
-    intent.setAction(MediaPlayerService.ACTION_START)
-    intent.putExtra("playlist", newPlaylist)
-    startService(intent)
+    //    val index = playList.tracks.indexOf(currentTrack) + 1
+    //    val newPlaylist = new PlaylistDto(playList.tracks.slice(index, playList.tracks.size))
+    //    newPlaylist.longDelay = 230L
+    //    newPlaylist.shortDelay = 100L
+    //
+    //    val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+    //    intent.setAction(MediaPlayerService.ACTION_START)
+    //    intent.putExtra("playlist", newPlaylist)
+    //    startService(intent)
   }
 
   override def onStart(): Unit = {
@@ -144,15 +141,17 @@ class PlayerActivity extends Activity {
     super.onStop()
   }
 
+  // for testing
   private def preparePlaylist(native: String, foreign: String) {
     val natives = native.split(",")
     val foreigns = foreign.split(",")
     for (i <- 0 until natives.length) {
-      tracks = tracks :+ new Track(i.toLong, new WordDto(ruLang, natives(i).trim), new WordDto(enLang, foreigns(i).trim))
+      tracks = tracks :+ new TrackDto(i.toLong,
+        new WordDto(ruLang, natives(i).trim),
+        new WordDto(enLang, foreigns(i).trim))
     }
-    playList = new PlaylistDto(tracks)
-    playList.longDelay = 230L
-    playList.shortDelay = 100L
+    playList = new Playlist(tracks)
+    playbackConf = new PlaybackConfig(shortDelay = 100L, longDelay = 230L)
   }
 
   override def onCreateOptionsMenu(menu: Menu): Boolean = {
@@ -174,4 +173,55 @@ class PlayerActivity extends Activity {
 
     super.onOptionsItemSelected(item)
   }
+
+  override def onNext(pos: Int, track: TrackDto): Unit = {
+    nativeWordText.setText(track.native.value)
+    foreignWordText.setText(track.foreign.value)
+    pSeekBar.setProgress(pos)
+  }
+
+  override def onReset(): Unit = {
+
+  }
+
+  override def onSwitch(pos: Int, track: TrackDto): Unit = {
+
+  }
+
+  trait PlaybackState {
+    def play
+  }
+
+  private object StateStop extends PlaybackState {
+    override def play: Unit = {
+      playList.reset()
+      val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+      intent.setAction(MediaPlayerService.ACTION_START)
+      intent.putExtra(MediaPlayerService.TRACKS, playList.tracks.asInstanceOf[Serializable])
+      intent.putExtra(MediaPlayerService.PLAYBACK_CONFIG, playbackConf.asInstanceOf[Serializable])
+      startService(intent)
+      playTrackBtn.setText("||")
+      currentState = StatePlaying
+    }
+  }
+
+  private object StatePlaying extends PlaybackState {
+    override def play: Unit = {
+      playTrackBtn.setText(">")
+      val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+      intent.setAction(MediaPlayerService.ACTION_PAUSE)
+      startService(intent)
+      return
+    }
+  }
+
+  private object StatePause extends PlaybackState {
+    override def play: Unit = {
+      playTrackBtn.setText("||")
+      val intent = new Intent(PlayerActivity.this, classOf[MediaPlayerService])
+      intent.setAction(MediaPlayerService.ACTION_PLAY)
+      startService(intent)
+    }
+  }
+
 }
